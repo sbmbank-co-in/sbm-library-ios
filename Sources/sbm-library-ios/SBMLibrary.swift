@@ -1,6 +1,6 @@
 //
-//  SpenseSdk.swift
-//  spense-sdk-ios
+//  SBMLibrary.swift
+//  sbm-library-ios
 //
 //  Created by Varun on 13/11/23.
 //
@@ -9,7 +9,7 @@ import UIKit
 import SwiftUI
 
 @available(iOS 16.0, *)
-public class SpenseLibrary {
+public class SBMLibrary {
     
     private var hostName = EnvManager.hostName
     var onMPINSetupSuccess: (() -> Void)?
@@ -91,6 +91,6 @@ public class SpenseLibrary {
     }
 }
 
-public enum SpenseError: Error {
+public enum SBMError: Error {
     case hostnameNotSet
 }

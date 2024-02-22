@@ -1,6 +1,6 @@
 //
 //  WebViewController.swift
-//  spense-sdk-ios
+//  sbm-library-ios
 //
 //  Created by Varun on 30/10/23.
 //

@@ -1,7 +1,7 @@
 import XCTest
-@testable import spense_library_ios
+@testable import sbm_library_ios
 
-final class spense_sdk_iosTests: XCTestCase {
+final class sbm_library_iosTests: XCTestCase {
     func testExample() throws {
         // XCTest Documentation
         // https://developer.apple.com/documentation/xctest

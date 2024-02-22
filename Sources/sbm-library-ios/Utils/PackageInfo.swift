@@ -6,5 +6,5 @@
 //
 
 struct PackageInfo {
-    static let version = "0.0.40"
+    static let version = "0.0.1"
 }

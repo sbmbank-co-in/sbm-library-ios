@@ -67,7 +67,7 @@ struct MPINSetupView: View {
                         Text("Forgot Mpin?")
                             .font(.footnote)
                         Button(action:  {
-                            SpenseLibrarySingleton.shared.instance.unbindDevice()
+                            SBMLibrarySingleton.shared.instance.unbindDevice()
                             isPinDisabled = false
                             self.presentationMode.wrappedValue.dismiss()
                             onReset()
