@@ -13,12 +13,19 @@ import SwiftUI
 
 public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDelegate {
     
+    private let whitelistedUrls = ["razorpay.com"]
+    
     private lazy var webView: WKWebView = {
-        let webview = WKWebView()
-        webview.navigationDelegate = self
-        webview.uiDelegate = self
-        webview.scrollView.isScrollEnabled = true
-        return webview
+        let webConfiguration = WKWebViewConfiguration()
+        let userContentController = WKUserContentController()
+        userContentController.add(self, name: "iosListener")
+        webConfiguration.userContentController = userContentController
+        
+        let webView = WKWebView(frame: .zero, configuration: webConfiguration)
+        webView.navigationDelegate = self
+        webView.uiDelegate = self
+        webView.scrollView.isScrollEnabled = true
+        return webView
     }()
     var urlString: String?
     
@@ -111,47 +118,6 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
         }
     }
     
-    //    func loadCookiesAndRequestIfNeeded() {
-    //        let userDefaults = UserDefaults.standard
-    //        let hasSyncedCookies = userDefaults.bool(forKey: "hasSyncedCookies")
-    //
-    //        if !hasSyncedCookies {
-    //            webView.load(URLRequest(url: URL(string: "about:blank")!))
-    //            synchronizeCookies {
-    //                self.loadInitialRequest()
-    //                userDefaults.set(true, forKey: "hasSyncedCookies")
-    //            }
-    //        } else {
-    //            loadInitialRequest()
-    //        }
-    //    }
-    
-    //    func synchronizeCookies(completion: @escaping () -> Void) {
-    //        let cookieStore = webView.configuration.websiteDataStore.httpCookieStore
-    //        let cookies = HTTPCookieStorage.shared.cookies ?? []
-    //        let dispatchGroup = DispatchGroup()
-    //
-    //        for cookie in cookies {
-    //            dispatchGroup.enter()
-    //            cookieStore.setCookie(cookie) {
-    //                dispatchGroup.leave()
-    //            }
-    //        }
-    //
-    //        dispatchGroup.notify(queue: DispatchQueue.main) {
-    //            completion()
-    //        }
-    //    }
-    //
-    //    func loadInitialRequest() {
-    //        guard let urlString = urlString, let url = URL(string: urlString) else {
-    //            print("Invalid URL")
-    //            return
-    //        }
-    //        let request = URLRequest(url: url)
-    //        webView.load(request)
-    //    }
-    
     public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
         print("WebView navigation failed: \(error)")
     }
@@ -196,8 +162,48 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
         }
     }
     
+    private func openURLExternally(_ url: URL) {
+        UIApplication.shared.open(url, options: [:], completionHandler: nil)
+    }
+    
     enum InvalidURLError: Error {
         case invalidURL
     }
     
+}
+
+extension WebViewController: WKScriptMessageHandler {
+    public func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        if message.name == "spense_library" {
+            if let messageBody = message.body as? String {
+                print("Received message from web: \(messageBody)")
+                // Handle the message or perform an action based on the message content
+            }
+        }
+    }
+}
+
+extension WebViewController {
+    public func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        guard let url = navigationAction.request.url else {
+            decisionHandler(.cancel)
+            return
+        }
+        
+        // Convert your logic to Swift
+        let urlString = url.absoluteString
+        
+        // Loop through whitelisted URLs to find a match
+        for whitelistedUrl in whitelistedUrls {
+            if urlString.contains(whitelistedUrl) || urlString.contains(EnvManager.hostName) {
+                // If URL matches whitelisted URL or the environment manager's hostname, load it inside the WebView
+                decisionHandler(.allow)
+                return
+            }
+        }
+        
+        // If URL does not match any condition, open it externally
+        openURLExternally(url)
+        decisionHandler(.cancel)
+    }
 }

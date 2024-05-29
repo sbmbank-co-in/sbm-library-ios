@@ -31,7 +31,7 @@ struct DeviceBindingWaitingView: View {
             case .failure:
                 FailureView(currentScreen: $currentScreen)
             case .mpinsetup:
-                MPINSetupView(isMPINSet: false, onSuccess: onSuccess, onReset: onReset)
+                MPINSetupView(isMPINSet: false, partner: partner, onSuccess: onSuccess, onReset: onReset)
             }
         }
         .onChange(of: deviceAuthCode) { newValue in
@@ -66,11 +66,12 @@ struct DeviceBindingWaitingView: View {
     
     private func checkDeviceBindingStatus() async {
         do {
-            let response = try await NetworkManager.shared.makeRequest(url: URL(string: (ServiceNames.DEVICE_BINDING_STATUS.dynamicParams(with: ["partner": partner])))!, method: "GET")
+            let response = try await NetworkManager.shared.makeRequest(url: URL(string: (ServiceNames.DEVICE_BIND.dynamicParams(with: ["partner": partner])))!, method: "GET")
             if response["status"] as? String == "SUCCESS" {
                 timer?.invalidate()
                 isLoading = false
                 SharedPreferenceManager.shared.setValue(deviceBindingId, forKey: "device_binding_id")
+                SharedPreferenceManager.shared.setValue("\(deviceId)", forKey: "device_id")
                 DispatchQueue.main.async {
                     currentScreen = .mpinsetup // Navigate to success view
                 }
@@ -93,8 +94,8 @@ struct DeviceBindingWaitingView: View {
     
     private func failDeviceBinding() async {
         do {
-            let parameters = ["device_id": deviceId] as [String : Any]
-            let response = try await NetworkManager.shared.makeRequest(url: URL(string: ServiceNames.DEVICE_BIND.dynamicParams(with: ["partner": partner]))!, method: "PUT", jsonPayload: parameters)
+            let parameters = ["device_binding_id": deviceBindingId] as [String : Any]
+            let response = try await NetworkManager.shared.makeRequest(url: URL(string: ServiceNames.DEVICE_BIND.dynamicParams(with: ["partner": partner]))!, method: "DELETE", jsonPayload: parameters)
             isLoading = false
         } catch {
             print(error)

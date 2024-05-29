@@ -21,9 +21,12 @@ struct MPINSetupView: View {
     @State private var resetPinFlow = false
     @State private var isPinDisabled = false
     @State private var wrongPinCount = 0
+    @State private var isLoading = false
     private let maxWrongAttempts = 3
     private let context = LAContext()
     @Environment(\.presentationMode) var presentationMode
+    
+    var partner: String
     
     var onSuccess: () -> Void
     var onReset: () -> Void
@@ -119,13 +122,14 @@ struct MPINSetupView: View {
                     await getServerTime()
                 }
             }
-        }.alert(isPresented: $showAlert) {
-            Alert(
-                title: Text(alertTitle),
-                message: Text(alertMessage),
-                dismissButton: .default(Text("OK"))
-            )
-        }
+        }.loader(isLoading: $isLoading)
+            .alert(isPresented: $showAlert) {
+                Alert(
+                    title: Text(alertTitle),
+                    message: Text(alertMessage),
+                    dismissButton: .default(Text("OK"))
+                )
+            }
     }
     
     private var headerView: some View {
@@ -222,7 +226,10 @@ struct MPINSetupView: View {
         context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { success, authenticationError in
             DispatchQueue.main.async {
                 if success {
-                    onSuccess()
+                    //                    onSuccess()
+                    Task {
+                        await setupDeviceSession()
+                    }
                     wrongPinCount = 0
                 } else {
                     self.alertMessage = "There was a problem authenticating you."
@@ -301,7 +308,10 @@ struct MPINSetupView: View {
     private func verifyPin(_ enteredPin: String) {
         let savedPin = SharedPreferenceManager.shared.getValue(forKey: "MPIN") ?? ""
         if enteredPin == savedPin {
-            onSuccess()
+            //                    onSuccess()
+            Task {
+                await setupDeviceSession()
+            }
             wrongPinCount = 0
         } else {
             resetPinFields()
@@ -318,7 +328,10 @@ struct MPINSetupView: View {
     private func handleConfirmedMPIN(_ mPIN: String) {
         SharedPreferenceManager.shared.setValue(mPIN, forKey: "MPIN")
         SharedPreferenceManager.shared.setValue(String((Date().timeIntervalSince1970)*1000), forKey: "MPIN_TIME")
-        onSuccess()
+        //                    onSuccess()
+        Task {
+            await setupDeviceSession()
+        }
     }
     
     private func presentAlert(withTitle title: String, withMessage message: String) {
@@ -327,6 +340,23 @@ struct MPINSetupView: View {
         alertMessage = message
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             showAlert = false
+        }
+    }
+    
+    private func setupDeviceSession() async {
+        isLoading = true
+        do {
+            let parameters = await ["device_id": SharedPreferenceManager.shared.getValue(forKey: "device_id"), "device_binding_id": SharedPreferenceManager.shared.getValue(forKey: "device_binding_id"), "device_uuid": UIDevice.current.identifierForVendor?.uuidString, "manufacturer": "Apple", "model": UIDevice.modelName, "os": "iOS", "os_version": UIDevice.current.systemVersion, "app_version": PackageInfo.version] as [String : Any]
+            let response = try await NetworkManager.shared.makeRequest(url: URL(string: ServiceNames.DEVICE_SESSION.dynamicParams(with: ["partner": partner]))!, method: "POST", jsonPayload: parameters)
+            isLoading = false
+            if response["code"] as? String == "DEVICE_BINDING_FAILED" {
+                print(response)
+            } else {
+                onSuccess()
+            }
+        } catch {
+            print(error)
+            isLoading = false
         }
     }
 }

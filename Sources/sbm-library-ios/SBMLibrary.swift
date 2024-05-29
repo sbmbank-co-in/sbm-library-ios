@@ -14,9 +14,10 @@ public class SBMLibrary {
     private var hostName = EnvManager.hostName
     var onMPINSetupSuccess: (() -> Void)?
     
-    init(hostName: String) {
+    init(hostName: String, whitelistedUrls: Array<String>) {
         self.hostName = hostName
         EnvManager.hostName = hostName
+        EnvManager.whitelistedUrls = whitelistedUrls
     }
     
     public func checkLogin() async throws -> [String: Any] {
@@ -31,7 +32,7 @@ public class SBMLibrary {
     public func bindDevice(on viewController: UIViewController, bank: String, partner: String, completion: @escaping () -> Void) {
         let isMPINSet = !(SharedPreferenceManager.shared.getValue(forKey: "MPIN") ?? "").isEmpty
         if (isMPINSet) {
-            let rootView = AnyView(MPINSetupView(isMPINSet: true, onSuccess: {
+            let rootView = AnyView(MPINSetupView(isMPINSet: true, partner: partner, onSuccess: {
                 viewController.dismiss(animated: true, completion: completion)
             }, onReset: {
                 self.bindDevice(on: viewController, bank: bank, partner: partner, completion: completion)

@@ -18,6 +18,6 @@ struct ServiceNames {
     static var BANKING_CUSTOMER_CHECK = "\(HOST_URL)\(BANKING_SLUG)/customer/check"
     static let TIME = "\(HOST_URL)\(GLOBAL_SLUG)/time"
     static var DEVICE_BIND = "\(HOST_URL)\(DEVICE_SLUG)/bind"
-    static var DEVICE_BINDING_STATUS = "\(HOST_URL)\(DEVICE_SLUG)/binding/status"
+    static var DEVICE_SESSION = "\(HOST_URL)\(DEVICE_SLUG)/session"
     static let NETWORK_KEYS = "\(HOST_URL)/network/keys"
 }

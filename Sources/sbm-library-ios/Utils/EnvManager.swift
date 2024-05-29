@@ -7,4 +7,5 @@
 
 struct EnvManager {
     static var hostName = "https://partner.uat.spense.money"
+    static var whitelistedUrls: Array<String> = []
 }
