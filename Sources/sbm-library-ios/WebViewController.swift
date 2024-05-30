@@ -13,18 +13,29 @@ import SwiftUI
 
 public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDelegate {
     
-    private let whitelistedUrls = ["razorpay.com"]
-    
     private lazy var webView: WKWebView = {
         let webConfiguration = WKWebViewConfiguration()
         let userContentController = WKUserContentController()
         userContentController.add(self, name: "iosListener")
         webConfiguration.userContentController = userContentController
         
+        // Enable caching
+        webConfiguration.websiteDataStore = WKWebsiteDataStore.default()
+        
         let webView = WKWebView(frame: .zero, configuration: webConfiguration)
         webView.navigationDelegate = self
         webView.uiDelegate = self
         webView.scrollView.isScrollEnabled = true
+        webView.configuration.preferences.javaScriptEnabled = true
+        webView.configuration.preferences.javaScriptCanOpenWindowsAutomatically = true
+        webView.configuration.allowsInlineMediaPlayback = true
+        webView.configuration.mediaTypesRequiringUserActionForPlayback = []
+        webView.configuration.preferences.setValue(true, forKey: "allowFileAccessFromFileURLs")
+        
+        if #available(iOS 14.0, *) {
+            webView.configuration.defaultWebpagePreferences.allowsContentJavaScript = true
+        }
+
         return webView
     }()
     var urlString: String?
@@ -63,8 +74,8 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
             }
         }
         
-        webView.configuration.preferences.setValue(true, forKey: "allowFileAccessFromFileURLs")
-        webView.configuration.mediaTypesRequiringUserActionForPlayback = []
+//        webView.configuration.preferences.setValue(true, forKey: "allowFileAccessFromFileURLs")
+//        webView.configuration.mediaTypesRequiringUserActionForPlayback = []
         
         loadRequestWithCookies(completion: { error in
             if let error = error {
@@ -185,6 +196,7 @@ extension WebViewController: WKScriptMessageHandler {
 
 extension WebViewController {
     public func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        
         guard let url = navigationAction.request.url else {
             decisionHandler(.cancel)
             return
@@ -193,8 +205,10 @@ extension WebViewController {
         // Convert your logic to Swift
         let urlString = url.absoluteString
         
+        print(urlString)
+        
         // Loop through whitelisted URLs to find a match
-        for whitelistedUrl in whitelistedUrls {
+        for whitelistedUrl in EnvManager.whitelistedUrls {
             if urlString.contains(whitelistedUrl) || urlString.contains(EnvManager.hostName) {
                 // If URL matches whitelisted URL or the environment manager's hostname, load it inside the WebView
                 decisionHandler(.allow)
