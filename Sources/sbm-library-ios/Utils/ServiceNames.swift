@@ -16,6 +16,7 @@ struct ServiceNames {
     static let LOGGED_IN = "\(HOST_URL)\(USER_SLUG)/logged_in"
     static var BANKING_ACCOUNTS_COUNT = "\(HOST_URL)\(BANKING_SLUG)/accounts/count"
     static var BANKING_CUSTOMER_CHECK = "\(HOST_URL)\(BANKING_SLUG)/customer/check"
+    static var BANKING_ONBOARDING_NEXT = "\(HOST_URL)\(BANKING_SLUG)/onboarding/next"
     static let TIME = "\(HOST_URL)\(GLOBAL_SLUG)/time"
     static var DEVICE_BIND = "\(HOST_URL)\(DEVICE_SLUG)/bind"
     static var DEVICE_SESSION = "\(HOST_URL)\(DEVICE_SLUG)/session"

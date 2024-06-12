@@ -70,7 +70,12 @@ struct MPINSetupView: View {
                         Text("Forgot Mpin?")
                             .font(.footnote)
                         Button(action:  {
-                            SBMLibrarySingleton.shared.instance.unbindDevice()
+                            //unbindDevice()
+                            
+                            SharedPreferenceManager.shared.setValue("", forKey: "MPIN")
+                            SharedPreferenceManager.shared.setValue("", forKey: "MPIN_TIME")
+                            SharedPreferenceManager.shared.setValue("", forKey: "MPIN_DISABLED_TIME")
+
                             isPinDisabled = false
                             self.presentationMode.wrappedValue.dismiss()
                             onReset()

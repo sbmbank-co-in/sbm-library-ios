@@ -1,8 +1,8 @@
 //
-//  SwiftUIView.swift
+//  LoaderView.swift
+//  sbm-smart-ios
 //
-//
-//  Created by Varun on 25/01/24.
+//  Created by Varun on 30/01/24.
 //
 
 import SwiftUI
@@ -14,6 +14,7 @@ struct LoaderView: View {
     init(bodyText: String = "Processing") {
         self.bodyText = bodyText
     }
+
     var body: some View {
         ZStack {
             Color.black.opacity(0.7).edgesIgnoringSafeArea(.all)
@@ -58,9 +59,4 @@ struct LoaderModifier: ViewModifier {
             }
         }
     }
-}
-
-@available(iOS 16.0, *)
-#Preview {
-    LoaderView()
 }

@@ -39,9 +39,11 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
         return webView
     }()
     var urlString: String?
+    var onLogout: () -> Void
     
-    public init(urlString: String?) {
+    public init(urlString: String?, onLogout: @escaping () -> Void) {
         self.urlString = urlString
+        self.onLogout = onLogout
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -150,6 +152,7 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
                 self.handleCameraAction()
             } else {
                 print("isCameraActionRequired function not found on this page")
+                self.onLogout()
             }
         }
     }
@@ -206,6 +209,18 @@ extension WebViewController {
         let urlString = url.absoluteString
         
         print(urlString)
+        
+        if urlString.contains("session-expired") {
+            onLogout()
+            decisionHandler(.cancel) // Stop loading
+            return
+        }
+        
+//        if urlString.contains("api.whatsapp.com") {
+//            openWhatsApp()
+//            decisionHandler(.cancel) // Stop loading as we are opening WhatsApp externally
+//            return
+//        }
         
         // Loop through whitelisted URLs to find a match
         for whitelistedUrl in EnvManager.whitelistedUrls {

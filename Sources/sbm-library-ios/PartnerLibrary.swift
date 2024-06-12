@@ -1,0 +1,191 @@
+//
+//  SBMLibrary.swift
+//  sbm-library-ios
+//
+//  Created by Varun on 13/11/23.
+//
+
+import UIKit
+import SwiftUI
+
+@available(iOS 16.0, *)
+public class PartnerLibrary {
+    
+    private var hostName = EnvManager.hostName
+    private var deviceBindingEnabled = EnvManager.deviceBindingEnabled
+    var onMPINSetupSuccess: (() -> Void)?
+    
+    init(hostName: String, deviceBindingEnabled: Bool, whitelistedUrls: Array<String>) {
+        self.hostName = hostName
+        EnvManager.hostName = hostName
+        EnvManager.deviceBindingEnabled = deviceBindingEnabled
+        EnvManager.whitelistedUrls = whitelistedUrls
+    }
+    
+    private func checkLogin() async throws -> [String: Any] {
+        return try await NetworkManager.shared.makeRequest(url: URL(string: ServiceNames.LOGGED_IN)!, method: "GET")
+    }
+    
+    private func login(token: String) async throws -> [String: Any] {
+        return try await NetworkManager.shared.makeRequest(url: URL(string: ServiceNames.LOGIN)!, method: "POST", jsonPayload: ["token": token])
+    }
+    
+    public func open(token: String, module: String, onLogout: @escaping () -> Void) async throws {
+        let checkLoginResponse = try await checkLogin()
+        print(checkLoginResponse)
+        if checkLoginResponse["type"] as! String == "success" {
+            if checkLoginResponse["is_loggedin"] as! Int == 1 {
+                DispatchQueue.main.async {
+                    let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: self.findTopMostViewController())
+                    viewTransitionCoordinator.startProcess(module: module, completion: onLogout)
+                }
+            } else {
+                try await login(token: token)
+                DispatchQueue.main.async {
+                    let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: self.findTopMostViewController())
+                    viewTransitionCoordinator.startProcess(module: module, completion: onLogout)
+                }
+            }
+        }
+    }
+    
+    private func findTopMostViewController() -> UIViewController {
+        var topMostViewController = UIApplication.shared.windows.first?.rootViewController
+        while let presentedViewController = topMostViewController?.presentedViewController {
+            topMostViewController = presentedViewController
+        }
+        return topMostViewController!
+    }
+    
+    private func checkDeviceBinding(bank: String) async throws -> Bool {
+        if !deviceBindingEnabled {
+            return false
+        }
+        
+        let onboardingNext = try await NetworkManager.shared.makeRequest(url: URL(string: ServiceNames.BANKING_ONBOARDING_NEXT.dynamicParams(with: ["bank": bank]))!, method: "GET")
+        
+        if (onboardingNext["path"] != nil && ((onboardingNext["path"] as! String).contains("/onboarding/success")) || ((onboardingNext["path"] as! String).contains("/onboarding/complete"))) {
+            return true
+        }
+        
+        return false
+    }
+    
+    func bindDevice(on viewController: UIViewController, bank: String, partner: String, completion: @escaping () -> Void) {
+        Task {
+            do {
+                let toBindDevice = try await self.checkDeviceBinding(bank: bank)
+                if (toBindDevice) {
+                    let isMPINSet = !(SharedPreferenceManager.shared.getValue(forKey: "MPIN") ?? "").isEmpty
+                    print("isMPINSet \(isMPINSet)")
+                    if (isMPINSet) {
+                        let rootView = AnyView(MPINSetupView(isMPINSet: true, partner: partner, onSuccess: {
+                            Task {
+                                await MainActor.run {
+                                    viewController.dismiss(animated: true, completion: completion)
+                                }
+                            }
+                        }, onReset: {
+                            self.bindDevice(on: viewController, bank: bank, partner: partner, completion: completion)
+                        }))
+                        
+                        let hostingController = await UIHostingController(rootView: rootView)
+                        hostingController.modalPresentationStyle = .fullScreen
+                        await viewController.present(hostingController, animated: true, completion: nil)
+                    } else {
+                        let rootView = AnyView(DeviceBindingWaitingView(bank: bank, partner: partner, onSuccess: {
+                            Task {
+                                await MainActor.run {
+                                    viewController.dismiss(animated: true, completion: completion)
+                                }
+                            }
+                        }, onReset: {
+                            self.bindDevice(on: viewController, bank: bank, partner: partner, completion: completion)
+                        }))
+                        await MainActor.run {
+                            let hostingController = UIHostingController(rootView: rootView)
+                            hostingController.modalPresentationStyle = .fullScreen
+                            viewController.present(hostingController, animated: true, completion: nil)
+                        }
+                    }
+                } else {
+                    await MainActor.run {
+                        viewController.dismiss(animated: true, completion: completion)
+                    }
+                }
+            } catch {
+                print(error)
+            }
+        }
+    }
+    
+    func openWebView(on viewController: UIViewController, withSlug slug: String, completion: @escaping () -> Void) {
+        let webVC = WebViewController(urlString: "\(EnvManager.hostName)\(slug)", onLogout: completion)
+        let navVC = UINavigationController(rootViewController: webVC)
+        navVC.modalPresentationStyle = .fullScreen
+        viewController.present(navVC, animated: true, completion: nil)
+    }
+    
+    public func getViewController(withSlug slug: String) -> UINavigationController {
+        let webVC = WebViewController(urlString: "\(EnvManager.hostName)\(slug)", onLogout: {
+            print("logged out")
+        })
+        let navVC = UINavigationController(rootViewController: webVC)
+        navVC.modalPresentationStyle = .fullScreen
+        return navVC
+    }
+}
+
+@available(iOS 16.0, *)
+class ViewTransitionCoordinator {
+    private var viewController: UIViewController
+    private var loaderViewController: LoaderViewController?
+    private let library = PartnerLibrarySingleton.shared.instance
+    
+    init(viewController: UIViewController) {
+        self.viewController = viewController
+    }
+    
+    func startProcess(module: String, completion: @escaping () -> Void) {
+        presentLoaderView()
+        bindDevice(module: module, completion: completion)
+    }
+    
+    private func presentLoaderView() {
+        loaderViewController = LoaderViewController()
+        loaderViewController?.modalPresentationStyle = .overFullScreen
+        viewController.present(loaderViewController!, animated: true, completion: nil)
+    }
+    
+    private func dismissLoaderView() {
+        loaderViewController?.dismiss(animated: true, completion: nil)
+    }
+    
+    private func bindDevice(module: String, completion: @escaping () -> Void) {
+        var partner = ""
+        var bank = ""
+        if module.contains("banking") {
+            if let bankingRange = module.range(of: "banking/") {
+                let startIndex = bankingRange.upperBound
+                if let endIndex = module[startIndex...].range(of: "/")?.lowerBound {
+                    bank = String(module[startIndex..<endIndex])
+                    partner = bank
+                }
+            }
+        }
+        self.library.bindDevice(on: loaderViewController!, bank: bank, partner: partner) {
+            self.loaderViewController?.dismiss(animated: true) {
+                self.openLibrary(module: module, completion: completion)
+            }
+        }
+    }
+    
+    private func openLibrary(module: String, completion: @escaping () -> Void) {
+        self.library.openWebView(on: viewController, withSlug: module, completion: completion)
+        dismissLoaderView()
+    }
+}
+
+public enum LibraryError: Error {
+    case hostnameNotSet
+}
