@@ -7,7 +7,7 @@
 
 import Foundation
 
-@available(iOS 16.0, *)
+@available(iOS 13.0, *)
 public class PartnerLibrarySingleton {
     public static let shared = PartnerLibrarySingleton()
     

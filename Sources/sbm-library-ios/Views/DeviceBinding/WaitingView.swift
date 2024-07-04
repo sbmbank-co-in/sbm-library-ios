@@ -7,35 +7,29 @@
 
 import SwiftUI
 
-@available(iOS 16.0, *)
+@available(iOS 13.0, *)
 struct WaitingView: View {
     @Environment(\.presentationMode) var presentationMode
-    @Binding var currentScreen: DeviceBindingWaitingView.Screen
-    @Binding var isShowingMessageCompose: Bool
-    @Binding var deviceAuthCode: String
-    @Binding var deviceId: Int
-    @Binding var deviceBindingId: String
-    @State private var isLoading = false
-    var partner: String
+    @ObservedObject var viewModel: DeviceBindingViewModel
     
     private func initiateDeviceBinding() async {
         do {
-            let parameters = await ["device_binding_id": deviceBindingId, "device_uuid": UIDevice.current.identifierForVendor?.uuidString, "manufacturer": "Apple", "model": UIDevice.modelName, "os": "iOS", "os_version": UIDevice.current.systemVersion, "app_version": PackageInfo.version] as [String : Any]
-            let response = try await NetworkManager.shared.makeRequest(url: URL(string: ServiceNames.DEVICE_BIND.dynamicParams(with: ["partner": partner]))!, method: "POST", jsonPayload: parameters)
-            isLoading = false
+            let parameters = await ["device_binding_id": viewModel.deviceBindingId, "device_uuid": UIDevice.current.identifierForVendor?.uuidString, "manufacturer": "Apple", "model": UIDevice.modelName, "os": "iOS", "os_version": UIDevice.current.systemVersion, "app_version": PackageInfo.version] as [String : Any]
+            let response = try await NetworkManager.shared.makeRequest(url: URL(string: ServiceNames.DEVICE_BIND.dynamicParams(with: ["partner": viewModel.partner]))!, method: "POST", jsonPayload: parameters)
+            viewModel.isLoading = false
             if let authCode = response["device_auth"] as? String {
                 DispatchQueue.main.async {
-                    self.deviceAuthCode = authCode
-                    self.deviceId = response["device_id"] as! Int
-                    self.isShowingMessageCompose = true
+                    self.viewModel.deviceAuthCode = authCode
+                    self.viewModel.deviceId = response["device_id"] as! Int
+                    self.viewModel.isShowingMessageCompose = true
                 }
             } else {
-                currentScreen = .failure
+                viewModel.currentScreen = .failure
             }
         } catch {
             print(error)
-            isLoading = false
-            currentScreen = .failure
+            viewModel.isLoading = false
+            viewModel.currentScreen = .failure
         }
     }
     
@@ -78,7 +72,7 @@ struct WaitingView: View {
                         }.padding(.leading, 12)
                             .padding(.bottom, 10)
                     }
-                    .background(Color(uiColor: .white))
+                    .background(Color(hex: 0xFFFFFF))
                     .cornerRadius(8)
                     .padding(.horizontal)
                     .padding(.top, 32)
@@ -100,12 +94,7 @@ struct WaitingView: View {
                 }
             }.background(Color(hex: 0xF5F5F5))
         }.navigationBarBackButtonHidden(true)
-            .toolbar(.hidden)
-            .loader(isLoading: $isLoading)
+            .navigationBarItems(leading: EmptyView())
+            .loader(isLoading: $viewModel.isLoading)
     }
 }
-//
-//@available(iOS 16.0, *)
-//#Preview {
-//    WaitingView()
-//}

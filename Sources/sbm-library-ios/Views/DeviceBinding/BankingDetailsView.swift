@@ -81,48 +81,48 @@ struct BankingDetailsView: View {
                         .padding(.horizontal)
                     
                     
-                    NavigationLink(destination: DeviceBindingWaitingView(bank: bank, partner: partner, onSuccess: onSuccess, onReset: {
-                        print("reset cif entry page")
-                    }), isActive: $navigateToDeviceBinding) {
-                        Button(action: {
-                            Task {
-                                let isoFormatter = ISO8601DateFormatter()
-                                isoFormatter.formatOptions = [.withInternetDateTime]
-                                
-                                let date = isoFormatter.date(from: dob.ISO8601Format())
-                                
-                                let dateFormatter = DateFormatter()
-                                dateFormatter.dateFormat = "yyyy-MM-dd"
-                                
-                                dobString = dateFormatter.string(from: date ?? Date())
-                                
-                                if cif.isEmpty {
-                                    alertMessage = "CIF cannot be empty"
-                                    showAlert = true
-                                    return
-                                }
-                                if pan.isEmpty {
-                                    alertMessage = "PAN cannot be empty"
-                                    showAlert = true
-                                    return
-                                }
-                                
-                                await matchCustomerDetails()
-                            }
-                        }) {
-                            Text("Continue")
-                                    .font(.headline)
-                                    .foregroundColor(.white)
-                                    .frame(maxWidth: .infinity)
-                                    .padding()
-                                    .background(cif.isEmpty || pan.isEmpty ? Color(hex: 0x037EAB, alpha: 0.3) : Color(hex: 0x037EAB))
-                                    .cornerRadius(8)
-                        }
-                        .padding(.top, 24)
-                        .padding(.horizontal)
-                        
-                    }
-                    .disabled(cif.isEmpty || pan.isEmpty)
+//                    NavigationLink(destination: DeviceBindingWaitingView(bank: bank, partner: partner, onSuccess: onSuccess, onReset: {
+//                        print("reset cif entry page")
+//                    }), isActive: $navigateToDeviceBinding) {
+//                        Button(action: {
+//                            Task {
+//                                let isoFormatter = ISO8601DateFormatter()
+//                                isoFormatter.formatOptions = [.withInternetDateTime]
+//                                
+//                                let date = isoFormatter.date(from: dob.ISO8601Format())
+//                                
+//                                let dateFormatter = DateFormatter()
+//                                dateFormatter.dateFormat = "yyyy-MM-dd"
+//                                
+//                                dobString = dateFormatter.string(from: date ?? Date())
+//                                
+//                                if cif.isEmpty {
+//                                    alertMessage = "CIF cannot be empty"
+//                                    showAlert = true
+//                                    return
+//                                }
+//                                if pan.isEmpty {
+//                                    alertMessage = "PAN cannot be empty"
+//                                    showAlert = true
+//                                    return
+//                                }
+//                                
+//                                await matchCustomerDetails()
+//                            }
+//                        }) {
+//                            Text("Continue")
+//                                    .font(.headline)
+//                                    .foregroundColor(.white)
+//                                    .frame(maxWidth: .infinity)
+//                                    .padding()
+//                                    .background(cif.isEmpty || pan.isEmpty ? Color(hex: 0x037EAB, alpha: 0.3) : Color(hex: 0x037EAB))
+//                                    .cornerRadius(8)
+//                        }
+//                        .padding(.top, 24)
+//                        .padding(.horizontal)
+//                        
+//                    }
+//                    .disabled(cif.isEmpty || pan.isEmpty)
                 }
             }.background(Color(hex: 0xF5F5F5))
                 .alert(isPresented: $showAlert) {

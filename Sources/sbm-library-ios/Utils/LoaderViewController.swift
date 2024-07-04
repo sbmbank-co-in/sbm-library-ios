@@ -9,7 +9,7 @@ import Foundation
 import UIKit
 import SwiftUI
 
-@available(iOS 16.0, *)
+@available(iOS 13.0, *)
 class LoaderViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()

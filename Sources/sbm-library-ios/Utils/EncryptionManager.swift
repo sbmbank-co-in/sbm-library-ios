@@ -9,7 +9,7 @@ import CryptoKit
 import Foundation
 import Security
 
-@available(iOS 16.0, *)
+@available(iOS 13.0, *)
 struct EncryptionManager {
     static func generateAESKey() -> SymmetricKey {
         return SymmetricKey(size: .bits256)

@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-@available(iOS 16.0, *)
+@available(iOS 13.0, *)
 struct FailureView: View {
     @Binding var currentScreen: DeviceBindingWaitingView.Screen
 

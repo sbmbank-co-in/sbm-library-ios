@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-@available(iOS 16.0, *)
+@available(iOS 13.0, *)
 extension View {
     func loader(isLoading: Binding<Bool>, bodyText: String = "Processing...") -> some View {
         self.modifier(LoaderModifier(isLoading: isLoading, bodyText: bodyText))

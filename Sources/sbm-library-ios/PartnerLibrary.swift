@@ -8,7 +8,7 @@
 import UIKit
 import SwiftUI
 
-@available(iOS 16.0, *)
+@available(iOS 13.0, *)
 public class PartnerLibrary {
     
     private var hostName = EnvManager.hostName
@@ -79,7 +79,7 @@ public class PartnerLibrary {
                     let isMPINSet = !(SharedPreferenceManager.shared.getValue(forKey: "MPIN") ?? "").isEmpty
                     print("isMPINSet \(isMPINSet)")
                     if (isMPINSet) {
-                        let rootView = AnyView(MPINSetupView(isMPINSet: true, partner: partner, onSuccess: {
+                        let rootView = AnyView(MPINSetupViewWrapper(isMPINSet: true, partner: partner, onSuccess: {
                             Task {
                                 await MainActor.run {
                                     viewController.dismiss(animated: true, completion: completion)
@@ -88,12 +88,13 @@ public class PartnerLibrary {
                         }, onReset: {
                             self.bindDevice(on: viewController, bank: bank, partner: partner, completion: completion)
                         }))
-                        
-                        let hostingController = await UIHostingController(rootView: rootView)
-                        hostingController.modalPresentationStyle = .fullScreen
-                        await viewController.present(hostingController, animated: true, completion: nil)
+                        await MainActor.run {
+                            let hostingController = UIHostingController(rootView: rootView)
+                            hostingController.modalPresentationStyle = .fullScreen
+                            viewController.present(hostingController, animated: true, completion: nil)
+                        }
                     } else {
-                        let rootView = AnyView(DeviceBindingWaitingView(bank: bank, partner: partner, onSuccess: {
+                        let viewModel = DeviceBindingViewModel(bank: bank, partner: partner, onSuccess: {
                             Task {
                                 await MainActor.run {
                                     viewController.dismiss(animated: true, completion: completion)
@@ -101,7 +102,8 @@ public class PartnerLibrary {
                             }
                         }, onReset: {
                             self.bindDevice(on: viewController, bank: bank, partner: partner, completion: completion)
-                        }))
+                        })
+                        let rootView = AnyView(DeviceBindingWaitingView(viewModel: viewModel))
                         await MainActor.run {
                             let hostingController = UIHostingController(rootView: rootView)
                             hostingController.modalPresentationStyle = .fullScreen
@@ -136,7 +138,7 @@ public class PartnerLibrary {
     }
 }
 
-@available(iOS 16.0, *)
+@available(iOS 13.0, *)
 class ViewTransitionCoordinator {
     private var viewController: UIViewController
     private var loaderViewController: LoaderViewController?

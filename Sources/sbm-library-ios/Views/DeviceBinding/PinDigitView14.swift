@@ -1,13 +1,14 @@
 //
-//  PinDigitFieldView.swift
-//  SDKSample
+//  File.swift
+//  
 //
-//  Created by Varun on 28/12/23.
+//  Created by Varun on 04/07/24.
 //
+
 import SwiftUI
 
 @available(iOS 14.0, *)
-struct PinDigitView: View {
+struct PinDigitView14: View {
     @Binding var digit: String
     var onBackspace: () -> Void
     let index: Int

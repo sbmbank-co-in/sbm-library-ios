@@ -8,7 +8,7 @@
 import Foundation
 import UIKit
 
-@available(iOS 16.0, *)
+@available(iOS 13.0, *)
 public class NetworkManager {
     public static let shared = NetworkManager()
     

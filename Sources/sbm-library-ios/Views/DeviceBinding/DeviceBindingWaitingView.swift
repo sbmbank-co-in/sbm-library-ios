@@ -7,100 +7,30 @@
 
 import SwiftUI
 
-@available(iOS 16.0, *)
+@available(iOS 13.0, *)
 struct DeviceBindingWaitingView: View {
     
-    @State private var currentScreen: Screen = .waiting
-    @State private var isShowingMessageCompose = false
-    @State private var deviceAuthCode = ""
-    @State private var deviceId = 0
-    @State private var timer: Timer? = nil
-    @State private var pollingCounter = 0
-    @State private var deviceBindingId = UUID().uuidString
-    var bank: String
-    var partner: String
-    var onSuccess: () -> Void
-    var onReset: () -> Void
-    @State private var isLoading = false
+    @ObservedObject var viewModel: DeviceBindingViewModel
     
     var body: some View {
         ZStack {
-            switch currentScreen {
+            switch viewModel.currentScreen {
             case .waiting:
-                WaitingView(currentScreen: $currentScreen, isShowingMessageCompose: $isShowingMessageCompose, deviceAuthCode: $deviceAuthCode, deviceId: $deviceId, deviceBindingId: $deviceBindingId, partner: partner)
+                WaitingView(viewModel: viewModel)
             case .failure:
-                FailureView(currentScreen: $currentScreen)
+                FailureView(currentScreen: $viewModel.currentScreen)
             case .mpinsetup:
-                MPINSetupView(isMPINSet: false, partner: partner, onSuccess: onSuccess, onReset: onReset)
+                MPINSetupViewWrapper(isMPINSet: false, partner: viewModel.partner, onSuccess: viewModel.onSuccess, onReset: viewModel.onReset)
+            }
+            
+            if viewModel.isLoading {
+                LoaderView()
             }
         }
-        .onChange(of: deviceAuthCode) { newValue in
-            if !newValue.isEmpty {
-                isShowingMessageCompose = true
-            }
+        .sheet(isPresented: $viewModel.isShowingMessageCompose, onDismiss: viewModel.startPolling) {
+            MessageComposeView(recipients: ["9220592205"], body: "CGFWT \(viewModel.deviceAuthCode)")
         }
-        .sheet(isPresented: $isShowingMessageCompose, onDismiss: startPolling) {
-            MessageComposeView(recipients: ["9220592205"], body: "CGFWT \(deviceAuthCode)")
-        }
-        .loader(isLoading: $isLoading)
-    }
-    
-    private func startPolling() {
-        isLoading = true
-        pollingCounter = 0
-        timer?.invalidate() // Invalidate any existing timer
-        timer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { _ in
-            if pollingCounter < 6 {
-                pollingCounter += 1
-                Task {
-                    await checkDeviceBindingStatus()
-                }
-            } else {
-                timer?.invalidate()
-                Task {
-                    await handleFailure()
-                }
-            }
-        }
-    }
-    
-    private func checkDeviceBindingStatus() async {
-        do {
-            let response = try await NetworkManager.shared.makeRequest(url: URL(string: (ServiceNames.DEVICE_BIND.dynamicParams(with: ["partner": partner])))!, method: "GET")
-            if response["status"] as? String == "SUCCESS" {
-                timer?.invalidate()
-                isLoading = false
-                SharedPreferenceManager.shared.setValue(deviceBindingId, forKey: "device_binding_id")
-                SharedPreferenceManager.shared.setValue("\(deviceId)", forKey: "device_id")
-                DispatchQueue.main.async {
-                    currentScreen = .mpinsetup // Navigate to success view
-                }
-            } else if response["status"] as? String == "FAILURE" {
-                timer?.invalidate()
-                await handleFailure()
-            }
-        } catch {
-            print(error)
-            await handleFailure()
-        }
-    }
-    
-    private func handleFailure() async {
-        await failDeviceBinding()
-        DispatchQueue.main.async {
-            currentScreen = .failure
-        }
-    }
-    
-    private func failDeviceBinding() async {
-        do {
-            let parameters = ["device_binding_id": deviceBindingId] as [String : Any]
-            let response = try await NetworkManager.shared.makeRequest(url: URL(string: ServiceNames.DEVICE_BIND.dynamicParams(with: ["partner": partner]))!, method: "DELETE", jsonPayload: parameters)
-            isLoading = false
-        } catch {
-            print(error)
-            isLoading = false
-        }
+        .loader(isLoading: $viewModel.isLoading)
     }
     
     enum Screen {
@@ -109,11 +39,12 @@ struct DeviceBindingWaitingView: View {
 }
 
 
-@available(iOS 16.0, *)
-#Preview {
-    DeviceBindingWaitingView(bank: "spense", partner: "spense", onSuccess: {
-        print("Success DeviceBindingWaitingView")
-    }, onReset: {
-        print("Reset DeviceBindingWaitingView")
-    })
-}
+
+//@available(iOS 16.0, *)
+//#Preview {
+//    DeviceBindingWaitingView(viewModel: <#DeviceBindingViewModel#>, bank: "spense", partner: "spense", onSuccess: {
+//        print("Success DeviceBindingWaitingView")
+//    }, onReset: {
+//        print("Reset DeviceBindingWaitingView")
+//    })
+//}

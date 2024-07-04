@@ -1,15 +1,15 @@
 //
-//  MPINSetupView.swift
-//  SDKSample
+//  File.swift
+//  
 //
-//  Created by Varun on 28/12/23.
+//  Created by Varun on 04/07/24.
 //
 
 import SwiftUI
 import LocalAuthentication
 
-@available(iOS 16.0, *)
-struct MPINSetupView: View {
+@available(iOS 15.0, *)
+struct MPINSetupView15: View {
     @State private var pinDigits: [String] = Array(repeating: "", count: 4)
     @State var isMPINSet: Bool
     @State private var otpEntered = 0
@@ -38,7 +38,7 @@ struct MPINSetupView: View {
                 HStack{
                     Spacer()
                     ForEach(0..<4, id: \.self) { index in
-                        PinDigitView(digit: $pinDigits[index], onBackspace: {
+                        PinDigitView14(digit: $pinDigits[index], onBackspace: {
                             handleBackspace(at: index)
                         }, index: index)
                         .focused($focusedField, equals: index)
@@ -75,7 +75,7 @@ struct MPINSetupView: View {
                             SharedPreferenceManager.shared.setValue("", forKey: "MPIN")
                             SharedPreferenceManager.shared.setValue("", forKey: "MPIN_TIME")
                             SharedPreferenceManager.shared.setValue("", forKey: "MPIN_DISABLED_TIME")
-
+                            
                             isPinDisabled = false
                             self.presentationMode.wrappedValue.dismiss()
                             onReset()
@@ -127,14 +127,18 @@ struct MPINSetupView: View {
                     await getServerTime()
                 }
             }
-        }.loader(isLoading: $isLoading)
-            .alert(isPresented: $showAlert) {
-                Alert(
-                    title: Text(alertTitle),
-                    message: Text(alertMessage),
-                    dismissButton: .default(Text("OK"))
-                )
+            
+            if isLoading {
+                LoaderView()
             }
+        }
+        .alert(isPresented: $showAlert) {
+            Alert(
+                title: Text(alertTitle),
+                message: Text(alertMessage),
+                dismissButton: .default(Text("OK"))
+            )
+        }
     }
     
     private var headerView: some View {
