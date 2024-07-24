@@ -17,6 +17,7 @@ public class PartnerLibrary {
     
     init(hostName: String, deviceBindingEnabled: Bool, whitelistedUrls: Array<String>) {
         self.hostName = hostName
+        self.deviceBindingEnabled = deviceBindingEnabled
         EnvManager.hostName = hostName
         EnvManager.deviceBindingEnabled = deviceBindingEnabled
         EnvManager.whitelistedUrls = whitelistedUrls
@@ -57,7 +58,7 @@ public class PartnerLibrary {
         return topMostViewController!
     }
     
-    private func checkDeviceBinding(bank: String) async throws -> Bool {
+    func checkDeviceBinding(bank: String) async throws -> Bool {
         if !deviceBindingEnabled {
             return false
         }
@@ -111,8 +112,15 @@ public class PartnerLibrary {
                         }
                     }
                 } else {
-                    await MainActor.run {
-                        viewController.dismiss(animated: true, completion: completion)
+                    let parameters = await ["device_uuid": UIDevice.current.identifierForVendor?.uuidString, "manufacturer": "Apple", "model": UIDevice.modelName, "os": "iOS", "os_version": UIDevice.current.systemVersion, "app_version": PackageInfo.version] as [String : Any]
+                    print(parameters)
+                    let response = try await NetworkManager.shared.makeRequest(url: URL(string: ServiceNames.DEVICE_SESSION.dynamicParams(with: ["partner": partner]))!, method: "POST", jsonPayload: parameters)
+                    if response["code"] as? String == "DEVICE_BINDED_SESSION_FAILURE" {
+                        print(response)
+                    } else {
+                        await MainActor.run {
+                            viewController.dismiss(animated: true, completion: completion)
+                        }
                     }
                 }
             } catch {
