@@ -117,6 +117,9 @@ public class PartnerLibrary {
                     let response = try await NetworkManager.shared.makeRequest(url: URL(string: ServiceNames.DEVICE_SESSION.dynamicParams(with: ["partner": partner]))!, method: "POST", jsonPayload: parameters)
                     if response["code"] as? String == "DEVICE_BINDED_SESSION_FAILURE" {
                         print(response)
+                        await MainActor.run {
+                            viewController.dismiss(animated: true, completion: completion)
+                        }
                     } else {
                         await MainActor.run {
                             viewController.dismiss(animated: true, completion: completion)
