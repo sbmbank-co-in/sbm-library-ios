@@ -51,7 +51,16 @@ public class PartnerLibrary {
     }
     
     private func findTopMostViewController() -> UIViewController {
-        var topMostViewController = UIApplication.shared.windows.first?.rootViewController
+        //        var topMostViewController = UIApplication.shared.windows.first?.rootViewController
+        //        while let presentedViewController = topMostViewController?.presentedViewController {
+        //            topMostViewController = presentedViewController
+        //        }
+        //        return topMostViewController!
+        guard let window = UIApplication.shared.windows.filter({ $0.isKeyWindow }).first else {
+            fatalError("No active window found")
+        }
+        
+        var topMostViewController = window.rootViewController
         while let presentedViewController = topMostViewController?.presentedViewController {
             topMostViewController = presentedViewController
         }
@@ -112,7 +121,6 @@ public class PartnerLibrary {
                         }
                     }
                 } else {
-                    print("Here I am with no device binding")
                     let parameters = await ["device_uuid": UIDevice.current.identifierForVendor?.uuidString, "manufacturer": "Apple", "model": UIDevice.modelName, "os": "iOS", "os_version": UIDevice.current.systemVersion, "app_version": PackageInfo.version] as [String : Any]
                     print(parameters)
                     let response = try await NetworkManager.shared.makeRequest(url: URL(string: ServiceNames.DEVICE_SESSION.dynamicParams(with: ["partner": partner]))!, method: "POST", jsonPayload: parameters)
@@ -134,10 +142,18 @@ public class PartnerLibrary {
     }
     
     func openWebView(on viewController: UIViewController, withSlug slug: String, completion: @escaping (WebViewCallback) -> Void) {
+        //        let webVC = WebViewController(urlString: "\(EnvManager.hostName)\(slug)", completion: completion)
+        //        let navVC = UINavigationController(rootViewController: webVC)
+        //        navVC.modalPresentationStyle = .fullScreen
+        //        viewController.present(navVC, animated: true, completion: nil)
         let webVC = WebViewController(urlString: "\(EnvManager.hostName)\(slug)", completion: completion)
-        let navVC = UINavigationController(rootViewController: webVC)
-        navVC.modalPresentationStyle = .fullScreen
-        viewController.present(navVC, animated: true, completion: nil)
+        if let navController = viewController.navigationController {
+            navController.pushViewController(webVC, animated: true)  // Use push if inside a navigation controller
+        } else {
+            let navVC = UINavigationController(rootViewController: webVC)
+            navVC.modalPresentationStyle = .fullScreen
+            viewController.present(navVC, animated: true, completion: nil)
+        }
     }
     
     public func getViewController(withSlug slug: String, completion: @escaping (WebViewCallback) -> Void) -> UINavigationController {
