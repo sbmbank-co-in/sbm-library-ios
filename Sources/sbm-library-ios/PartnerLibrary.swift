@@ -31,20 +31,20 @@ public class PartnerLibrary {
         return try await NetworkManager.shared.makeRequest(url: URL(string: ServiceNames.LOGIN)!, method: "POST", jsonPayload: ["token": token])
     }
     
-    public func open(token: String, module: String, completion: @escaping (WebViewCallback) -> Void) async throws {
+    public func open(token: String, module: String, callback callback: @escaping (WebViewCallback) -> Void) async throws {
         let checkLoginResponse = try await checkLogin()
         print(checkLoginResponse)
         if checkLoginResponse["type"] as! String == "success" {
             if checkLoginResponse["is_loggedin"] as! Int == 1 {
                 DispatchQueue.main.async {
                     let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: self.findTopMostViewController())
-                    viewTransitionCoordinator.startProcess(module: module, completion: completion)
+                    viewTransitionCoordinator.startProcess(module: module, completion: callback)
                 }
             } else {
                 try await login(token: token)
                 DispatchQueue.main.async {
                     let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: self.findTopMostViewController())
-                    viewTransitionCoordinator.startProcess(module: module, completion: completion)
+                    viewTransitionCoordinator.startProcess(module: module, completion: callback)
                 }
             }
         }
@@ -141,12 +141,12 @@ public class PartnerLibrary {
         }
     }
     
-    func openWebView(on viewController: UIViewController, withSlug slug: String, completion: @escaping (WebViewCallback) -> Void) {
+    func openWebView(on viewController: UIViewController, withSlug slug: String, completion callback: @escaping (WebViewCallback) -> Void) {
         //        let webVC = WebViewController(urlString: "\(EnvManager.hostName)\(slug)", completion: completion)
         //        let navVC = UINavigationController(rootViewController: webVC)
         //        navVC.modalPresentationStyle = .fullScreen
         //        viewController.present(navVC, animated: true, completion: nil)
-        let webVC = WebViewController(urlString: "\(EnvManager.hostName)\(slug)", completion: completion)
+        let webVC = WebViewController(urlString: "\(EnvManager.hostName)\(slug)", completion: callback)
         if let navController = viewController.navigationController {
             navController.pushViewController(webVC, animated: true)  // Use push if inside a navigation controller
         } else {
