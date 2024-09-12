@@ -31,20 +31,20 @@ public class PartnerLibrary {
         return try await NetworkManager.shared.makeRequest(url: URL(string: ServiceNames.LOGIN)!, method: "POST", jsonPayload: ["token": token])
     }
     
-    public func open(token: String, module: String, onLogout: @escaping () -> Void) async throws {
+    public func open(token: String, module: String, completion: @escaping (WebViewCallback) -> Void) async throws {
         let checkLoginResponse = try await checkLogin()
         print(checkLoginResponse)
         if checkLoginResponse["type"] as! String == "success" {
             if checkLoginResponse["is_loggedin"] as! Int == 1 {
                 DispatchQueue.main.async {
                     let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: self.findTopMostViewController())
-                    viewTransitionCoordinator.startProcess(module: module, completion: onLogout)
+                    viewTransitionCoordinator.startProcess(module: module, completion: completion)
                 }
             } else {
                 try await login(token: token)
                 DispatchQueue.main.async {
                     let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: self.findTopMostViewController())
-                    viewTransitionCoordinator.startProcess(module: module, completion: onLogout)
+                    viewTransitionCoordinator.startProcess(module: module, completion: completion)
                 }
             }
         }
@@ -112,6 +112,7 @@ public class PartnerLibrary {
                         }
                     }
                 } else {
+                    print("Here I am with no device binding")
                     let parameters = await ["device_uuid": UIDevice.current.identifierForVendor?.uuidString, "manufacturer": "Apple", "model": UIDevice.modelName, "os": "iOS", "os_version": UIDevice.current.systemVersion, "app_version": PackageInfo.version] as [String : Any]
                     print(parameters)
                     let response = try await NetworkManager.shared.makeRequest(url: URL(string: ServiceNames.DEVICE_SESSION.dynamicParams(with: ["partner": partner]))!, method: "POST", jsonPayload: parameters)
@@ -132,17 +133,15 @@ public class PartnerLibrary {
         }
     }
     
-    func openWebView(on viewController: UIViewController, withSlug slug: String, completion: @escaping () -> Void) {
-        let webVC = WebViewController(urlString: "\(EnvManager.hostName)\(slug)", onLogout: completion)
+    func openWebView(on viewController: UIViewController, withSlug slug: String, completion: @escaping (WebViewCallback) -> Void) {
+        let webVC = WebViewController(urlString: "\(EnvManager.hostName)\(slug)", completion: completion)
         let navVC = UINavigationController(rootViewController: webVC)
         navVC.modalPresentationStyle = .fullScreen
         viewController.present(navVC, animated: true, completion: nil)
     }
     
-    public func getViewController(withSlug slug: String) -> UINavigationController {
-        let webVC = WebViewController(urlString: "\(EnvManager.hostName)\(slug)", onLogout: {
-            print("logged out")
-        })
+    public func getViewController(withSlug slug: String, completion: @escaping (WebViewCallback) -> Void) -> UINavigationController {
+        let webVC = WebViewController(urlString: "\(EnvManager.hostName)\(slug)", completion: completion)
         let navVC = UINavigationController(rootViewController: webVC)
         navVC.modalPresentationStyle = .fullScreen
         return navVC
@@ -159,7 +158,7 @@ class ViewTransitionCoordinator {
         self.viewController = viewController
     }
     
-    func startProcess(module: String, completion: @escaping () -> Void) {
+    func startProcess(module: String, completion: @escaping (WebViewCallback) -> Void) {
         presentLoaderView()
         bindDevice(module: module, completion: completion)
     }
@@ -174,7 +173,7 @@ class ViewTransitionCoordinator {
         loaderViewController?.dismiss(animated: true, completion: nil)
     }
     
-    private func bindDevice(module: String, completion: @escaping () -> Void) {
+    private func bindDevice(module: String, completion: @escaping (WebViewCallback) -> Void) {
         var partner = ""
         var bank = ""
         if module.contains("banking") {
@@ -193,7 +192,7 @@ class ViewTransitionCoordinator {
         }
     }
     
-    private func openLibrary(module: String, completion: @escaping () -> Void) {
+    private func openLibrary(module: String, completion: @escaping (WebViewCallback) -> Void) {
         self.library.openWebView(on: viewController, withSlug: module, completion: completion)
         dismissLoaderView()
     }

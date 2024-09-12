@@ -35,15 +35,15 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
         if #available(iOS 14.0, *) {
             webView.configuration.defaultWebpagePreferences.allowsContentJavaScript = true
         }
-
+        
         return webView
     }()
     var urlString: String?
-    var onLogout: () -> Void
+    var completion: (WebViewCallback) -> Void
     
-    public init(urlString: String?, onLogout: @escaping () -> Void) {
+    public init(urlString: String?, completion: @escaping (WebViewCallback) -> Void) {
         self.urlString = urlString
-        self.onLogout = onLogout
+        self.completion = completion
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -76,8 +76,8 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
             }
         }
         
-//        webView.configuration.preferences.setValue(true, forKey: "allowFileAccessFromFileURLs")
-//        webView.configuration.mediaTypesRequiringUserActionForPlayback = []
+        //        webView.configuration.preferences.setValue(true, forKey: "allowFileAccessFromFileURLs")
+        //        webView.configuration.mediaTypesRequiringUserActionForPlayback = []
         
         loadRequestWithCookies(completion: { error in
             if let error = error {
@@ -152,7 +152,6 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
                 self.handleCameraAction()
             } else {
                 print("isCameraActionRequired function not found on this page")
-                self.onLogout()
             }
         }
     }
@@ -210,17 +209,28 @@ extension WebViewController {
         
         print(urlString)
         
-        if urlString.contains("session-expired") {
-            onLogout()
-            decisionHandler(.cancel) // Stop loading
+        if urlString.contains("/redirect?status=") {
+            if let status = url.query?.components(separatedBy: "=").last {
+                // Call the onRedirect callback and pass the status
+                completion(.redirect(status: status))
+            }
+            decisionHandler(.cancel) // Stop loading since we're handling it
+            self.dismiss(animated: true)
             return
         }
         
-//        if urlString.contains("api.whatsapp.com") {
-//            openWhatsApp()
-//            decisionHandler(.cancel) // Stop loading as we are opening WhatsApp externally
-//            return
-//        }
+        if urlString.contains("session-expired") {
+            completion(.logout)
+            decisionHandler(.cancel) // Stop loading
+            self.dismiss(animated: true)
+            return
+        }
+        
+        //        if urlString.contains("api.whatsapp.com") {
+        //            openWhatsApp()
+        //            decisionHandler(.cancel) // Stop loading as we are opening WhatsApp externally
+        //            return
+        //        }
         
         // Loop through whitelisted URLs to find a match
         for whitelistedUrl in EnvManager.whitelistedUrls {
