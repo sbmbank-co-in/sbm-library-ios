@@ -32,12 +32,12 @@ struct EncryptionManager {
     static func decryptAES(encryptedData: Data, key: SymmetricKey) -> String? {
         // AES GCM tag is typically 16 bytes (128 bits)
         let tagLength = 16
-
+        
         guard encryptedData.count > 12 + tagLength else {
             print("Decryption error: Data too short")
             return nil
         }
-
+        
         let iv = encryptedData.prefix(12)
         let tagAndCiphertext = encryptedData.dropFirst(12)
         guard let tag = tagAndCiphertext.suffix(tagLength) as? Data,
@@ -45,7 +45,7 @@ struct EncryptionManager {
             print("Decryption error: Unable to extract tag and ciphertext")
             return nil
         }
-
+        
         do {
             let nonce = try AES.GCM.Nonce(data: iv)
             let sealedBox = try AES.GCM.SealedBox(nonce: nonce, ciphertext: ciphertext, tag: tag)
@@ -56,14 +56,14 @@ struct EncryptionManager {
             return nil
         }
     }
-
+    
     static func encryptRSA(dataToEncrypt: Data, publicKey: SecKey) -> String? {
         let algorithm: SecKeyAlgorithm = .rsaEncryptionOAEPSHA256
         guard SecKeyIsAlgorithmSupported(publicKey, .encrypt, algorithm) else {
             print("Algorithm not supported.")
             return nil
         }
-
+        
         var error: Unmanaged<CFError>?
         guard let cipherText = SecKeyCreateEncryptedData(publicKey, algorithm, dataToEncrypt as CFData, &error) else {
             if let error = error?.takeRetainedValue() {
@@ -105,21 +105,55 @@ struct EncryptionManager {
     }
     
     private static func getPublicKeyAndKidString() async throws -> (String, String) {
-        guard let keyWeb = SharedPreferenceManager.shared.getValue(forKey: "key_web"),
-              let kid = SharedPreferenceManager.shared.getValue(forKey: "kid") else {
-            let response = try await fetchPublicKeyResponse()
+        if let keyWeb = SharedPreferenceManager.shared.getValue(forKey: StorageKeys.keyWeb),
+           let kid = SharedPreferenceManager.shared.getValue(forKey: StorageKeys.kid),
+           let expiryString = SharedPreferenceManager.shared.getValue(forKey: StorageKeys.keyWebExpiry),
+           let expiryDate = Double(expiryString) {
             
-            guard let keyData = response.first?.value,
-                  let publicKeyString = keyData["public"] as? String,
-                  let kid = keyData["kid"] as? String else {
-                throw NetworkError.invalidPublicKey
+            let currentTime = Date().timeIntervalSince1970 * 1000
+            
+            if currentTime < expiryDate {
+                return (keyWeb, kid)
+            }
+        }
+        
+        let response = try await fetchPublicKeyResponse()
+        
+        var latestExpiry: Double = 0
+        var latestPublicKey: String?
+        var latestKid: String?
+        
+        for (_, keyData) in response {
+            guard let publicKey = keyData["public"] as? String,
+                  let kid = keyData["kid"] as? String,
+                  let expiryString = keyData["expiry"] as? String else {
+                continue
             }
             
-            SharedPreferenceManager.shared.setValue(publicKeyString, forKey: "key_web")
-            SharedPreferenceManager.shared.setValue(kid, forKey: "kid")
-            return (publicKeyString, kid)
+            guard let expiryDate = parseExpiryDate(expiryString) else {
+                continue
+            }
+            
+            if expiryDate > latestExpiry {
+                latestExpiry = expiryDate
+                latestPublicKey = publicKey
+                latestKid = kid
+            }
         }
-        return (keyWeb, kid)
+        
+        // Validate before returning
+        guard let finalPublicKey = latestPublicKey,
+              let finalKid = latestKid,
+              !finalPublicKey.isEmpty else {
+            throw NetworkError.invalidPublicKey
+        }
+        
+        // Store values
+        SharedPreferenceManager.shared.setValue(finalPublicKey, forKey: StorageKeys.keyWeb)
+        SharedPreferenceManager.shared.setValue(finalKid, forKey: StorageKeys.kid)
+        SharedPreferenceManager.shared.setValue(String(latestExpiry), forKey: StorageKeys.keyWebExpiry)
+        
+        return (finalPublicKey, finalKid)
     }
     
     private static func fetchPublicKeyResponse() async throws -> [String: [String: String]] {
@@ -129,6 +163,17 @@ struct EncryptionManager {
             throw NetworkError.invalidPublicKey
         }
         return response
+    }
+    
+    private static func parseExpiryDate(_ dateString: String) -> Double? {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        
+        guard let date = dateFormatter.date(from: dateString) else {
+            return nil
+        }
+        
+        return date.timeIntervalSince1970 * 1000 // Convert to milliseconds
     }
     
     static func convertPEMStringToSecKey(_ pemString: String) throws -> SecKey {
@@ -157,7 +202,7 @@ struct EncryptionManager {
     enum KeyConversionError: Error {
         case invalidPrivateKey, dataConversionFailed, attributesMissing
     }
-
+    
     static func convertPEMToPrivateKey(pemString: String) throws -> SecKey {
         // Ensure the PEM string format is correctly prepared for base64 decoding
         let base64String = pemString
@@ -168,19 +213,19 @@ struct EncryptionManager {
             .replacingOccurrences(of: " ", with: "") // Ensure no spaces are included
         
         print("Base64 String Length: \(base64String.count)")
-
+        
         guard let data = Data(base64Encoded: base64String) else {
             print("Failed to convert base64 string to Data")
             throw NetworkError.invalidPrivateKey
         }
-
+        
         print("Data Length: \(data.count) bytes")
-
+        
         let options: [String: Any] = [
             kSecAttrKeyType as String: kSecAttrKeyTypeRSA,
             kSecAttrKeyClass as String: kSecAttrKeyClassPrivate,
         ]
-
+        
         var error: Unmanaged<CFError>?
         guard let privateKey = SecKeyCreateWithData(data as CFData, options as CFDictionary, &error) else {
             if let error = error {
@@ -188,7 +233,13 @@ struct EncryptionManager {
             }
             throw NetworkError.invalidPrivateKey
         }
-
+        
         return privateKey
     }
+}
+
+private enum StorageKeys {
+    static let keyWeb = "key_web"
+    static let kid = "kid"
+    static let keyWebExpiry = "key_web_expiry"
 }
