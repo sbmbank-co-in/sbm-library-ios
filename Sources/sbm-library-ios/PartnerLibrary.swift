@@ -87,38 +87,10 @@ public class PartnerLibrary {
                 let toBindDevice = try await self.checkDeviceBinding(bank: bank)
                 if (toBindDevice) {
                     let isMPINSet = !(SharedPreferenceManager.shared.getValue(forKey: "MPIN") ?? "").isEmpty
-                    print("isMPINSet \(isMPINSet)")
                     if (isMPINSet) {
-                        let rootView = AnyView(MPINSetupViewWrapper(isMPINSet: true, partner: partner, onSuccess: {
-                            Task {
-                                await MainActor.run {
-                                    viewController.dismiss(animated: true, completion: completion)
-                                }
-                            }
-                        }, onReset: {
-                            self.bindDevice(on: viewController, bank: bank, partner: partner, completion: completion)
-                        }))
-                        await MainActor.run {
-                            let hostingController = UIHostingController(rootView: rootView)
-                            hostingController.modalPresentationStyle = .fullScreen
-                            viewController.present(hostingController, animated: true, completion: nil)
-                        }
+                        self.presentMPINSetup(on: viewController, partner: partner, completion: completion)
                     } else {
-                        let viewModel = DeviceBindingViewModel(bank: bank, partner: partner, onSuccess: {
-                            Task {
-                                await MainActor.run {
-                                    viewController.dismiss(animated: true, completion: completion)
-                                }
-                            }
-                        }, onReset: {
-                            self.bindDevice(on: viewController, bank: bank, partner: partner, completion: completion)
-                        })
-                        let rootView = AnyView(DeviceBindingWaitingView(viewModel: viewModel))
-                        await MainActor.run {
-                            let hostingController = UIHostingController(rootView: rootView)
-                            hostingController.modalPresentationStyle = .fullScreen
-                            viewController.present(hostingController, animated: true, completion: nil)
-                        }
+                        self.presentDeviceBinding(on: viewController, bank: bank, partner: partner, completion: completion)
                     }
                 } else {
                     let parameters = await ["device_uuid": UIDevice.current.identifierForVendor?.uuidString, "manufacturer": "Apple", "model": UIDevice.modelName, "os": "iOS", "os_version": UIDevice.current.systemVersion, "app_version": PackageInfo.version] as [String : Any]
@@ -126,19 +98,39 @@ public class PartnerLibrary {
                     let response = try await NetworkManager.shared.makeRequest(url: URL(string: ServiceNames.DEVICE_SESSION.dynamicParams(with: ["partner": partner]))!, method: "POST", jsonPayload: parameters)
                     if response["code"] as? String == "DEVICE_BINDED_SESSION_FAILURE" {
                         print(response)
-                        await MainActor.run {
-                            viewController.dismiss(animated: true, completion: completion)
-                        }
+                        completion()
                     } else {
-                        await MainActor.run {
-                            viewController.dismiss(animated: true, completion: completion)
-                        }
+                        completion()
                     }
                 }
             } catch {
                 print(error)
+                completion()
             }
         }
+    }
+    
+    private func presentMPINSetup(on viewController: UIViewController, partner: String, completion: @escaping () -> Void) {
+        let rootView = AnyView(MPINSetupViewWrapper(isMPINSet: true, partner: partner, onSuccess: {
+            completion()
+        }, onReset: {
+            self.bindDevice(on: viewController, bank: partner, partner: partner, completion: completion)
+        }))
+        let hostingController = UIHostingController(rootView: rootView)
+        hostingController.modalPresentationStyle = .fullScreen
+        viewController.present(hostingController, animated: true)
+    }
+    
+    private func presentDeviceBinding(on viewController: UIViewController, bank: String, partner: String, completion: @escaping () -> Void) {
+        let viewModel = DeviceBindingViewModel(bank: bank, partner: partner, onSuccess: {
+            completion()
+        }, onReset: {
+            self.bindDevice(on: viewController, bank: bank, partner: partner, completion: completion)
+        })
+        let rootView = AnyView(DeviceBindingWaitingView(viewModel: viewModel))
+        let hostingController = UIHostingController(rootView: rootView)
+        hostingController.modalPresentationStyle = .fullScreen
+        viewController.present(hostingController, animated: true)
     }
     
     func openWebView(on viewController: UIViewController, withSlug slug: String, completion callback: @escaping (WebViewCallback) -> Void) {
@@ -176,20 +168,29 @@ class ViewTransitionCoordinator {
     
     func startProcess(module: String, completion: @escaping (WebViewCallback) -> Void) {
         presentLoaderView()
-        bindDevice(module: module, completion: completion)
+        bindDevice(module: module) {
+            self.openLibrary(module: module) { callback in
+                self.dismissLoaderView()
+                completion(callback)
+            }
+        }
     }
     
     private func presentLoaderView() {
         loaderViewController = LoaderViewController()
         loaderViewController?.modalPresentationStyle = .overFullScreen
-        viewController.present(loaderViewController!, animated: true, completion: nil)
+        viewController.present(loaderViewController!, animated: true)
     }
     
     private func dismissLoaderView() {
-        loaderViewController?.dismiss(animated: true, completion: nil)
+        DispatchQueue.main.async {
+            self.loaderViewController?.dismiss(animated: true) {
+                self.loaderViewController = nil
+            }
+        }
     }
     
-    private func bindDevice(module: String, completion: @escaping (WebViewCallback) -> Void) {
+    private func bindDevice(module: String, completion: @escaping () -> Void) {
         var partner = ""
         var bank = ""
         if module.contains("banking") {
@@ -201,16 +202,26 @@ class ViewTransitionCoordinator {
                 }
             }
         }
-        self.library.bindDevice(on: loaderViewController!, bank: bank, partner: partner) {
-            self.loaderViewController?.dismiss(animated: true) {
-                self.openLibrary(module: module, completion: completion)
-            }
+        library.bindDevice(on: viewController, bank: bank, partner: partner) {
+            completion()
         }
     }
     
     private func openLibrary(module: String, completion: @escaping (WebViewCallback) -> Void) {
-        self.library.openWebView(on: viewController, withSlug: module, completion: completion)
-        dismissLoaderView()
+        DispatchQueue.main.async {
+            let webVC = WebViewController(urlString: "\(EnvManager.hostName)\(module)") { result in
+                completion(result)
+            }
+            let navVC = UINavigationController(rootViewController: webVC)
+            navVC.modalPresentationStyle = .fullScreen
+            
+            if let loaderVC = self.loaderViewController {
+                loaderVC.present(navVC, animated: true)
+            } else {
+                self.viewController.present(navVC, animated: true)
+            }
+            
+        }
     }
 }
 
