@@ -33,7 +33,6 @@ public class PartnerLibrary {
     
     public func open(token: String, module: String, callback callback: @escaping (WebViewCallback) -> Void) async throws {
         let checkLoginResponse = try await checkLogin()
-        print(checkLoginResponse)
         if checkLoginResponse["type"] as! String == "success" {
             if checkLoginResponse["is_loggedin"] as! Int == 1 {
                 DispatchQueue.main.async {
@@ -51,11 +50,6 @@ public class PartnerLibrary {
     }
     
     private func findTopMostViewController() -> UIViewController {
-        //        var topMostViewController = UIApplication.shared.windows.first?.rootViewController
-        //        while let presentedViewController = topMostViewController?.presentedViewController {
-        //            topMostViewController = presentedViewController
-        //        }
-        //        return topMostViewController!
         guard let window = UIApplication.shared.windows.filter({ $0.isKeyWindow }).first else {
             fatalError("No active window found")
         }
@@ -94,10 +88,8 @@ public class PartnerLibrary {
                     }
                 } else {
                     let parameters = await ["device_uuid": UIDevice.current.identifierForVendor?.uuidString, "manufacturer": "Apple", "model": UIDevice.modelName, "os": "iOS", "os_version": UIDevice.current.systemVersion, "app_version": PackageInfo.version] as [String : Any]
-                    print(parameters)
                     let response = try await NetworkManager.shared.makeRequest(url: URL(string: ServiceNames.DEVICE_SESSION.dynamicParams(with: ["partner": partner]))!, method: "POST", jsonPayload: parameters)
                     if response["code"] as? String == "DEVICE_BINDED_SESSION_FAILURE" {
-                        print(response)
                         completion()
                     } else {
                         completion()
@@ -131,28 +123,6 @@ public class PartnerLibrary {
         let hostingController = UIHostingController(rootView: rootView)
         hostingController.modalPresentationStyle = .fullScreen
         viewController.present(hostingController, animated: true)
-    }
-    
-    func openWebView(on viewController: UIViewController, withSlug slug: String, completion callback: @escaping (WebViewCallback) -> Void) {
-        //        let webVC = WebViewController(urlString: "\(EnvManager.hostName)\(slug)", completion: completion)
-        //        let navVC = UINavigationController(rootViewController: webVC)
-        //        navVC.modalPresentationStyle = .fullScreen
-        //        viewController.present(navVC, animated: true, completion: nil)
-        let webVC = WebViewController(urlString: "\(EnvManager.hostName)\(slug)", completion: callback)
-        if let navController = viewController.navigationController {
-            navController.pushViewController(webVC, animated: true)  // Use push if inside a navigation controller
-        } else {
-            let navVC = UINavigationController(rootViewController: webVC)
-            navVC.modalPresentationStyle = .fullScreen
-            viewController.present(navVC, animated: true, completion: nil)
-        }
-    }
-    
-    public func getViewController(withSlug slug: String, completion: @escaping (WebViewCallback) -> Void) -> UINavigationController {
-        let webVC = WebViewController(urlString: "\(EnvManager.hostName)\(slug)", completion: completion)
-        let navVC = UINavigationController(rootViewController: webVC)
-        navVC.modalPresentationStyle = .fullScreen
-        return navVC
     }
 }
 
@@ -212,13 +182,19 @@ class ViewTransitionCoordinator {
             let webVC = WebViewController(urlString: "\(EnvManager.hostName)\(module)") { result in
                 completion(result)
             }
-            let navVC = UINavigationController(rootViewController: webVC)
-            navVC.modalPresentationStyle = .fullScreen
-            
-            if let loaderVC = self.loaderViewController {
-                loaderVC.present(navVC, animated: true)
+            if let navigationController = self.viewController.navigationController {
+                // Push to existing navigation stack
+                navigationController.pushViewController(webVC, animated: true)
             } else {
-                self.viewController.present(navVC, animated: true)
+                // Create new navigation controller only if one doesn't exist
+                let navVC = UINavigationController(rootViewController: webVC)
+                navVC.modalPresentationStyle = .fullScreen
+                
+                if let loaderVC = self.loaderViewController {
+                    loaderVC.present(navVC, animated: true)
+                } else {
+                    self.viewController.present(navVC, animated: true)
+                }
             }
             
         }
