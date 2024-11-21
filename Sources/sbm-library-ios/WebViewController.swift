@@ -72,7 +72,7 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
         
         if let cookies = HTTPCookieStorage.shared.cookies {
             for cookie in cookies {
-                print("Cookie: \(cookie.name)=\(cookie.value)")
+                
             }
         }
         
@@ -151,7 +151,7 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
             } else if let isFunction = result as? Bool, isFunction {
                 self.handleCameraAction()
             } else {
-                print("isCameraActionRequired function not found on this page")
+                
             }
         }
     }

@@ -108,10 +108,8 @@ public class NetworkManager {
                       let jsonObject = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
                     throw NetworkError.invalidJSONFormat
                 }
-                print(jsonObject)
                 return jsonObject
             } else {
-                print(response)
                 return response
             }
         } catch {
