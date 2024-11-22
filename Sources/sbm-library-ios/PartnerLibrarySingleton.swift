@@ -13,12 +13,12 @@ public class PartnerLibrarySingleton {
     
     private var library: PartnerLibrary?
     
-    public func initialize(withHostName hostName: String, deviceBindingEnabled: Bool = true, whitelistedUrls: Array<String>) {
+    public func initialize(withHostName hostName: String, deviceBindingEnabled: Bool = true, whitelistedUrls: Array<String>, navigationBarDisabled: Bool = true) {
         guard library == nil else {
             print("Error: Library is already initialized. Call reset() to reinitialize.")
             return
         }
-        library = PartnerLibrary(hostName: hostName, deviceBindingEnabled: deviceBindingEnabled, whitelistedUrls: whitelistedUrls)
+        library = PartnerLibrary(hostName: hostName, deviceBindingEnabled: deviceBindingEnabled, whitelistedUrls: whitelistedUrls, navigationBarDisabled: navigationBarDisabled)
     }
     
     public var instance: PartnerLibrary {

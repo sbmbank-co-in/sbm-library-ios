@@ -88,7 +88,7 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
     
     override public func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        additionalSafeAreaInsets = UIEdgeInsets(top: -view.safeAreaInsets.top, left: 0, bottom: -view.safeAreaInsets.bottom, right: 0)
+//        additionalSafeAreaInsets = UIEdgeInsets(top: -view.safeAreaInsets.top, left: 0, bottom: -view.safeAreaInsets.bottom, right: 0)
     }
     
     @objc func didSwipe(_ gesture: UISwipeGestureRecognizer) {
@@ -175,8 +175,10 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
         }
     }
     
-    private func openURLExternally(_ url: URL) {
-        UIApplication.shared.open(url, options: [:], completionHandler: nil)
+    private func openURLExternally(_ url: URL, completion: @escaping () -> Void) {
+        UIApplication.shared.open(url, options: [:]) { _ in
+            completion()
+        }
     }
     
     enum InvalidURLError: Error {
@@ -226,12 +228,6 @@ extension WebViewController {
             return
         }
         
-        //        if urlString.contains("api.whatsapp.com") {
-        //            openWhatsApp()
-        //            decisionHandler(.cancel) // Stop loading as we are opening WhatsApp externally
-        //            return
-        //        }
-        
         // Loop through whitelisted URLs to find a match
         for whitelistedUrl in EnvManager.whitelistedUrls {
             if urlString.contains(whitelistedUrl) || urlString.contains(EnvManager.hostName) {
@@ -242,7 +238,8 @@ extension WebViewController {
         }
         
         // If URL does not match any condition, open it externally
-        openURLExternally(url)
-        decisionHandler(.cancel)
+        openURLExternally(url) {
+            decisionHandler(.cancel)
+        }
     }
 }

@@ -15,12 +15,13 @@ public class PartnerLibrary {
     private var deviceBindingEnabled = EnvManager.deviceBindingEnabled
     var onMPINSetupSuccess: (() -> Void)?
     
-    init(hostName: String, deviceBindingEnabled: Bool, whitelistedUrls: Array<String>) {
+    init(hostName: String, deviceBindingEnabled: Bool, whitelistedUrls: Array<String>, navigationBarDisabled: Bool) {
         self.hostName = hostName
         self.deviceBindingEnabled = deviceBindingEnabled
         EnvManager.hostName = hostName
         EnvManager.deviceBindingEnabled = deviceBindingEnabled
         EnvManager.whitelistedUrls = whitelistedUrls
+        EnvManager.navigationBarDisabled = navigationBarDisabled
     }
     
     private func checkLogin() async throws -> [String: Any] {
@@ -49,17 +50,43 @@ public class PartnerLibrary {
         }
     }
     
-    private func findTopMostViewController() -> UIViewController {
-        guard let window = UIApplication.shared.windows.filter({ $0.isKeyWindow }).first else {
-            fatalError("No active window found")
+        private func findTopMostViewController() -> UIViewController {
+            guard let window = UIApplication.shared.windows.filter({ $0.isKeyWindow }).first else {
+                fatalError("No active window found")
+            }
+    
+            var topMostViewController = window.rootViewController
+            while let presentedViewController = topMostViewController?.presentedViewController {
+                topMostViewController = presentedViewController
+            }
+            return topMostViewController!
         }
-        
-        var topMostViewController = window.rootViewController
-        while let presentedViewController = topMostViewController?.presentedViewController {
-            topMostViewController = presentedViewController
-        }
-        return topMostViewController!
-    }
+    
+    // In PartnerLibrary.swift
+//    private func findTopMostViewController() -> UIViewController {
+//        guard let window = UIApplication.shared.windows.filter({ $0.isKeyWindow }).first else {
+//            fatalError("No active window found")
+//        }
+//        
+//        var topMostViewController = window.rootViewController
+//        
+//        // First traverse navigation controller stack
+//        if let navigationController = topMostViewController as? UINavigationController {
+//            topMostViewController = navigationController.visibleViewController ?? navigationController
+//        }
+//        
+//        // Then traverse presented controllers
+//        while let presentedViewController = topMostViewController?.presentedViewController {
+//            if let navigationController = presentedViewController as? UINavigationController {
+//                topMostViewController = navigationController.visibleViewController ?? presentedViewController
+//            } else {
+//                topMostViewController = presentedViewController
+//            }
+//        }
+//        
+//        return topMostViewController!
+//    }
+    
     
     func checkDeviceBinding(bank: String) async throws -> Bool {
         if !deviceBindingEnabled {
@@ -182,21 +209,20 @@ class ViewTransitionCoordinator {
             let webVC = WebViewController(urlString: "\(EnvManager.hostName)\(module)") { result in
                 completion(result)
             }
+            
             if let navigationController = self.viewController.navigationController {
-                // Push to existing navigation stack
-                navigationController.pushViewController(webVC, animated: true)
+                navigationController.pushViewController(webVC, animated: false)
+                navigationController.setNavigationBarHidden(EnvManager.navigationBarDisabled, animated: false)
             } else {
-                // Create new navigation controller only if one doesn't exist
                 let navVC = UINavigationController(rootViewController: webVC)
                 navVC.modalPresentationStyle = .fullScreen
-                
+                navVC.setNavigationBarHidden(EnvManager.navigationBarDisabled, animated: false)
                 if let loaderVC = self.loaderViewController {
                     loaderVC.present(navVC, animated: true)
                 } else {
                     self.viewController.present(navVC, animated: true)
                 }
             }
-            
         }
     }
 }
