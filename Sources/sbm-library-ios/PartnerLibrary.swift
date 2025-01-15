@@ -25,6 +25,7 @@ public class PartnerLibrary {
     }
     
     private func checkLogin() async throws -> [String: Any] {
+        print("In Check login function")
         return try await NetworkManager.shared.makeRequest(url: URL(string: ServiceNames.LOGGED_IN)!, method: "GET")
     }
     
@@ -34,19 +35,25 @@ public class PartnerLibrary {
     
     public func open(token: String, module: String, callback callback: @escaping (WebViewCallback) -> Void) async throws {
         let checkLoginResponse = try await checkLogin()
+        print("checkLoginResponse: \(checkLoginResponse)")
         if checkLoginResponse["type"] as! String == "success" {
+            print("Line 40 if success")
             if checkLoginResponse["is_loggedin"] as! Int == 1 {
+                print("isLoggedIn true")
                 DispatchQueue.main.async {
                     let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: self.findTopMostViewController())
                     viewTransitionCoordinator.startProcess(module: module, completion: callback)
                 }
             } else {
+                print("isLoggedIn false")
                 try await login(token: token)
                 DispatchQueue.main.async {
                     let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: self.findTopMostViewController())
                     viewTransitionCoordinator.startProcess(module: module, completion: callback)
                 }
             }
+        } else {
+            print("Line 54 else")
         }
     }
     
@@ -106,7 +113,9 @@ public class PartnerLibrary {
         Task {
             do {
                 let toBindDevice = try await self.checkDeviceBinding(bank: bank)
+                print("checkDeviceBinding: \(toBindDevice)")
                 if (toBindDevice) {
+                    print("Line 118 if success")
                     let isMPINSet = !(SharedPreferenceManager.shared.getValue(forKey: "MPIN") ?? "").isEmpty
                     if (isMPINSet) {
                         self.presentMPINSetup(on: viewController, partner: partner, completion: completion)
@@ -114,8 +123,10 @@ public class PartnerLibrary {
                         self.presentDeviceBinding(on: viewController, bank: bank, partner: partner, completion: completion)
                     }
                 } else {
+                    print("Line 125 else")
                     let parameters = await ["device_uuid": UIDevice.current.identifierForVendor?.uuidString, "manufacturer": "Apple", "model": UIDevice.modelName, "os": "iOS", "os_version": UIDevice.current.systemVersion, "app_version": PackageInfo.version] as [String : Any]
                     let response = try await NetworkManager.shared.makeRequest(url: URL(string: ServiceNames.DEVICE_SESSION.dynamicParams(with: ["partner": partner]))!, method: "POST", jsonPayload: parameters)
+                    print("Bind Device to Session response: \(response)")
                     if response["code"] as? String == "DEVICE_BINDED_SESSION_FAILURE" {
                         completion()
                     } else {
@@ -165,6 +176,7 @@ class ViewTransitionCoordinator {
     
     func startProcess(module: String, completion: @escaping (WebViewCallback) -> Void) {
         presentLoaderView()
+        print("Loader presented")
         bindDevice(module: module) {
             self.openLibrary(module: module) { callback in
                 self.dismissLoaderView()
@@ -199,12 +211,14 @@ class ViewTransitionCoordinator {
                 }
             }
         }
+        print("Bank \(bank)")
         library.bindDevice(on: viewController, bank: bank, partner: partner) {
             completion()
         }
     }
     
     private func openLibrary(module: String, completion: @escaping (WebViewCallback) -> Void) {
+        print("Inside openLibrary")
         DispatchQueue.main.async {
             let webVC = WebViewController(urlString: "\(EnvManager.hostName)\(module)") { result in
                 completion(result)
