@@ -30,6 +30,7 @@ public class PartnerLibrary {
     }
     
     private func login(token: String) async throws -> [String: Any] {
+        print("Inside login function")
         return try await NetworkManager.shared.makeRequest(url: URL(string: ServiceNames.LOGIN)!, method: "POST", jsonPayload: ["token": token])
     }
     
@@ -46,7 +47,8 @@ public class PartnerLibrary {
                 }
             } else {
                 print("isLoggedIn false")
-                try await login(token: token)
+                let loginResponse = try await login(token: token)
+                print("loginResponse: \(loginResponse)")
                 DispatchQueue.main.async {
                     let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: self.findTopMostViewController())
                     viewTransitionCoordinator.startProcess(module: module, completion: callback)
