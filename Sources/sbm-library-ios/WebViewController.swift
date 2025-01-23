@@ -54,6 +54,8 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
     override public func viewDidLoad() {
         super.viewDidLoad()
         
+        view.backgroundColor = .white
+        
         let swipeBack = UISwipeGestureRecognizer(target: self, action: #selector(didSwipe(_:)))
         swipeBack.direction = .right
         self.view.addGestureRecognizer(swipeBack)
@@ -66,7 +68,7 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
             webView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
             webView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor)
         ])
-        webView.frame = view.bounds
+//        webView.frame = view.bounds
         
         
         

@@ -60,14 +60,18 @@ public class PartnerLibrary {
     }
     
         private func findTopMostViewController() -> UIViewController {
-            guard let window = UIApplication.shared.windows.filter({ $0.isKeyWindow }).first else {
-                fatalError("No active window found")
-            }
-    
-            var topMostViewController = window.rootViewController
-            while let presentedViewController = topMostViewController?.presentedViewController {
-                topMostViewController = presentedViewController
-            }
+            guard let window = UIApplication.shared.connectedScenes
+                        .filter({ $0.activationState == .foregroundActive })
+                        .compactMap({ $0 as? UIWindowScene })
+                        .first?.windows
+                        .first(where: { $0.isKeyWindow }) else {
+                    fatalError("No active window found")
+                }
+
+                var topMostViewController = window.rootViewController
+                while let presentedViewController = topMostViewController?.presentedViewController {
+                    topMostViewController = presentedViewController
+                }
             return topMostViewController!
         }
     
