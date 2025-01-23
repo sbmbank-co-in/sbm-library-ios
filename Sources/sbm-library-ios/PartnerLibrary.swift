@@ -56,6 +56,12 @@ public class PartnerLibrary {
             }
         } else {
             print("Line 54 else")
+            let loginResponse = try await login(token: token)
+            print("loginResponse: \(loginResponse)")
+            DispatchQueue.main.async {
+                let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: self.findTopMostViewController())
+                viewTransitionCoordinator.startProcess(module: module, completion: callback)
+            }
         }
     }
     
