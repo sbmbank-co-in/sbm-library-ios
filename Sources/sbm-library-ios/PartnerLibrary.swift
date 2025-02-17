@@ -7,12 +7,14 @@
 
 import UIKit
 import SwiftUI
+import WebKit
 
 @available(iOS 13.0, *)
 public class PartnerLibrary {
     
     private var hostName = EnvManager.hostName
     private var deviceBindingEnabled = EnvManager.deviceBindingEnabled
+    var preloadedWebVC: WebViewController?
     var onMPINSetupSuccess: (() -> Void)?
     
     init(hostName: String, deviceBindingEnabled: Bool, whitelistedUrls: Array<String>, navigationBarDisabled: Bool) {
@@ -22,15 +24,42 @@ public class PartnerLibrary {
         EnvManager.deviceBindingEnabled = deviceBindingEnabled
         EnvManager.whitelistedUrls = whitelistedUrls
         EnvManager.navigationBarDisabled = navigationBarDisabled
+        
+        Task {
+            await preloadWebView()
+        }
+    }
+    
+    private func preloadWebView() async {
+        // Create a WebViewController with a dummy preload URL or any required initial state.
+        // Optionally, you can load a lightweight webpage or use the final URL later.
+        let preloadURL = "\(EnvManager.hostName)"
+        let webVC = WebViewController(urlString: preloadURL) { _ in
+            // This callback can be empty since it’s just preloading.
+            print("here")
+        }
+        // Trigger view loading so that the WebView begins loading content.
+        _ = webVC.view
+        
+        // Propagate cookies from HTTPCookieStorage to WKWebView's cookie store.
+        if let url = URL(string: preloadURL),
+           let cookies = HTTPCookieStorage.shared.cookies(for: url),
+           let wkWebView = webVC as? WKWebView
+        {
+            let cookieStore: WKHTTPCookieStore = wkWebView.configuration.websiteDataStore.httpCookieStore
+            for cookie in cookies {
+                cookieStore.setCookie(cookie, completionHandler: nil)
+            }
+        }
+        
+        self.preloadedWebVC = webVC
     }
     
     private func checkLogin() async throws -> [String: Any] {
-        print("In Check login function")
         return try await NetworkManager.shared.makeRequest(url: URL(string: ServiceNames.LOGGED_IN)!, method: "GET")
     }
     
     private func login(token: String) async throws -> [String: Any] {
-        print("Inside login function")
         return try await NetworkManager.shared.makeRequest(url: URL(string: ServiceNames.LOGIN)!, method: "POST", jsonPayload: ["token": token])
     }
     
@@ -38,15 +67,12 @@ public class PartnerLibrary {
         let checkLoginResponse = try await checkLogin()
         print("checkLoginResponse: \(checkLoginResponse)")
         if checkLoginResponse["type"] as! String == "success" {
-            print("Line 40 if success")
             if checkLoginResponse["is_loggedin"] as! Int == 1 {
-                print("isLoggedIn true")
                 DispatchQueue.main.async {
                     let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: self.findTopMostViewController())
                     viewTransitionCoordinator.startProcess(module: module, completion: callback)
                 }
             } else {
-                print("isLoggedIn false")
                 let loginResponse = try await login(token: token)
                 print("loginResponse: \(loginResponse)")
                 DispatchQueue.main.async {
@@ -55,9 +81,7 @@ public class PartnerLibrary {
                 }
             }
         } else {
-            print("Line 54 else")
             let loginResponse = try await login(token: token)
-            print("loginResponse: \(loginResponse)")
             DispatchQueue.main.async {
                 let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: self.findTopMostViewController())
                 viewTransitionCoordinator.startProcess(module: module, completion: callback)
@@ -65,47 +89,21 @@ public class PartnerLibrary {
         }
     }
     
-        private func findTopMostViewController() -> UIViewController {
-            guard let window = UIApplication.shared.connectedScenes
-                        .filter({ $0.activationState == .foregroundActive })
-                        .compactMap({ $0 as? UIWindowScene })
-                        .first?.windows
-                        .first(where: { $0.isKeyWindow }) else {
-                    fatalError("No active window found")
-                }
-
-                var topMostViewController = window.rootViewController
-                while let presentedViewController = topMostViewController?.presentedViewController {
-                    topMostViewController = presentedViewController
-                }
-            return topMostViewController!
+    private func findTopMostViewController() -> UIViewController {
+        guard let window = UIApplication.shared.connectedScenes
+            .filter({ $0.activationState == .foregroundActive })
+            .compactMap({ $0 as? UIWindowScene })
+            .first?.windows
+            .first(where: { $0.isKeyWindow }) else {
+            fatalError("No active window found")
         }
-    
-    // In PartnerLibrary.swift
-//    private func findTopMostViewController() -> UIViewController {
-//        guard let window = UIApplication.shared.windows.filter({ $0.isKeyWindow }).first else {
-//            fatalError("No active window found")
-//        }
-//        
-//        var topMostViewController = window.rootViewController
-//        
-//        // First traverse navigation controller stack
-//        if let navigationController = topMostViewController as? UINavigationController {
-//            topMostViewController = navigationController.visibleViewController ?? navigationController
-//        }
-//        
-//        // Then traverse presented controllers
-//        while let presentedViewController = topMostViewController?.presentedViewController {
-//            if let navigationController = presentedViewController as? UINavigationController {
-//                topMostViewController = navigationController.visibleViewController ?? presentedViewController
-//            } else {
-//                topMostViewController = presentedViewController
-//            }
-//        }
-//        
-//        return topMostViewController!
-//    }
-    
+        
+        var topMostViewController = window.rootViewController
+        while let presentedViewController = topMostViewController?.presentedViewController {
+            topMostViewController = presentedViewController
+        }
+        return topMostViewController!
+    }
     
     func checkDeviceBinding(bank: String) async throws -> Bool {
         if !deviceBindingEnabled {
@@ -125,9 +123,7 @@ public class PartnerLibrary {
         Task {
             do {
                 let toBindDevice = try await self.checkDeviceBinding(bank: bank)
-                print("checkDeviceBinding: \(toBindDevice)")
                 if (toBindDevice) {
-                    print("Line 118 if success")
                     let isMPINSet = !(SharedPreferenceManager.shared.getValue(forKey: "MPIN") ?? "").isEmpty
                     if (isMPINSet) {
                         self.presentMPINSetup(on: viewController, partner: partner, completion: completion)
@@ -135,7 +131,6 @@ public class PartnerLibrary {
                         self.presentDeviceBinding(on: viewController, bank: bank, partner: partner, completion: completion)
                     }
                 } else {
-                    print("Line 125 else")
                     let parameters = await ["device_uuid": UIDevice.current.identifierForVendor?.uuidString, "manufacturer": "Apple", "model": UIDevice.modelName, "os": "iOS", "os_version": UIDevice.current.systemVersion, "app_version": PackageInfo.version] as [String : Any]
                     let response = try await NetworkManager.shared.makeRequest(url: URL(string: ServiceNames.DEVICE_SESSION.dynamicParams(with: ["partner": partner]))!, method: "POST", jsonPayload: parameters)
                     print("Bind Device to Session response: \(response)")
@@ -188,7 +183,6 @@ class ViewTransitionCoordinator {
     
     func startProcess(module: String, completion: @escaping (WebViewCallback) -> Void) {
         presentLoaderView()
-        print("Loader presented")
         bindDevice(module: module) {
             self.openLibrary(module: module) { callback in
                 self.dismissLoaderView()
@@ -223,17 +217,25 @@ class ViewTransitionCoordinator {
                 }
             }
         }
-        print("Bank \(bank)")
         library.bindDevice(on: viewController, bank: bank, partner: partner) {
             completion()
         }
     }
     
     private func openLibrary(module: String, completion: @escaping (WebViewCallback) -> Void) {
-        print("Inside openLibrary")
         DispatchQueue.main.async {
-            let webVC = WebViewController(urlString: "\(EnvManager.hostName)\(module)") { result in
-                completion(result)
+            let webVC: WebViewController
+            let newUrl = "\(EnvManager.hostName)\(module)"
+            if let preloaded = self.library.preloadedWebVC {
+                webVC = preloaded
+                webVC.setCallback { result in
+                    completion(result)
+                }
+                webVC.updateAndReload(with: newUrl)
+            } else {
+                webVC = WebViewController(urlString: "\(EnvManager.hostName)\(module)") { result in
+                    completion(result)
+                }
             }
             
             if let navigationController = self.viewController.navigationController {
@@ -244,9 +246,9 @@ class ViewTransitionCoordinator {
                 navVC.modalPresentationStyle = .fullScreen
                 navVC.setNavigationBarHidden(EnvManager.navigationBarDisabled, animated: false)
                 if let loaderVC = self.loaderViewController {
-                    loaderVC.present(navVC, animated: true)
+                    loaderVC.present(navVC, animated: false)
                 } else {
-                    self.viewController.present(navVC, animated: true)
+                    self.viewController.present(navVC, animated: false)
                 }
             }
         }

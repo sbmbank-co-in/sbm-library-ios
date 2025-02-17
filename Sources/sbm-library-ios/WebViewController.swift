@@ -133,6 +133,19 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
         }
     }
     
+    public func updateAndReload(with urlString: String) {
+        self.urlString = urlString
+        loadRequestWithCookies { error in
+            if let error = error {
+                print("Error reloading WebView: \(error)")
+            }
+        }
+    }
+    
+    public func setCallback(_ callback: @escaping (WebViewCallback) -> Void) {
+        self.completion = callback
+    }
+    
     public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
         print("WebView navigation failed: \(error)")
     }
