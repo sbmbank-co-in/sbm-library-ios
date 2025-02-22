@@ -124,7 +124,7 @@ public class PartnerLibrary {
             do {
                 let toBindDevice = try await self.checkDeviceBinding(bank: bank)
                 if (toBindDevice) {
-                    let isMPINSet = !(SharedPreferenceManager.shared.getValue(forKey: "MPIN") ?? "").isEmpty
+                    let isMPINSet = await !(SharedPreferenceManager.shared.getValue(forKey: "MPIN") ?? "").isEmpty
                     if (isMPINSet) {
                         self.presentMPINSetup(on: viewController, partner: partner, completion: completion)
                     } else {
@@ -182,30 +182,36 @@ class ViewTransitionCoordinator {
     }
     
     func startProcess(module: String, completion: @escaping (WebViewCallback) -> Void) {
-        presentLoaderView()
-        bindDevice(module: module) {
+        DispatchQueue.main.async {
+            self.presentLoaderView()
+        }
+        
+        Task { MainActor.self
+            await bindDevice(module: module)
+            
             self.openLibrary(module: module) { callback in
                 self.dismissLoaderView()
                 completion(callback)
             }
         }
+        
     }
     
     private func presentLoaderView() {
         loaderViewController = LoaderViewController()
         loaderViewController?.modalPresentationStyle = .overFullScreen
-        viewController.present(loaderViewController!, animated: true)
+        viewController.present(loaderViewController!, animated: false)
     }
     
     private func dismissLoaderView() {
         DispatchQueue.main.async {
-            self.loaderViewController?.dismiss(animated: true) {
+            self.loaderViewController?.dismiss(animated: false) {
                 self.loaderViewController = nil
             }
         }
     }
     
-    private func bindDevice(module: String, completion: @escaping () -> Void) {
+    private func bindDevice(module: String) async {
         var partner = ""
         var bank = ""
         if module.contains("banking") {
@@ -218,7 +224,7 @@ class ViewTransitionCoordinator {
             }
         }
         library.bindDevice(on: viewController, bank: bank, partner: partner) {
-            completion()
+            print("here")
         }
     }
     
