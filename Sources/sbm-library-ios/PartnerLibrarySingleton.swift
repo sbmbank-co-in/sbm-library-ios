@@ -9,11 +9,11 @@ import Foundation
 
 @available(iOS 13.0, *)
 public class PartnerLibrarySingleton {
-    public static let shared = PartnerLibrarySingleton()
+    @MainActor public static let shared = PartnerLibrarySingleton()
     
     private var library: PartnerLibrary?
     
-    public func initialize(withHostName hostName: String, deviceBindingEnabled: Bool = true, whitelistedUrls: Array<String>, navigationBarDisabled: Bool = true) {
+    @MainActor public func initialize(withHostName hostName: String, deviceBindingEnabled: Bool = true, whitelistedUrls: Array<String>, navigationBarDisabled: Bool = true) {
         guard library == nil else {
             print("Error: Library is already initialized. Call reset() to reinitialize.")
             return

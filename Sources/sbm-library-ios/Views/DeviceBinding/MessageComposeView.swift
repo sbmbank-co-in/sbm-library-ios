@@ -28,14 +28,14 @@ struct MessageComposeView: UIViewControllerRepresentable {
         return Coordinator(self)
     }
 
-    class Coordinator: NSObject, MFMessageComposeViewControllerDelegate {
+    class Coordinator: NSObject, @preconcurrency MFMessageComposeViewControllerDelegate {
         var parent: MessageComposeView
 
         init(_ parent: MessageComposeView) {
             self.parent = parent
         }
 
-        func messageComposeViewController(_ controller: MFMessageComposeViewController, didFinishWith result: MessageComposeResult) {
+        @MainActor func messageComposeViewController(_ controller: MFMessageComposeViewController, didFinishWith result: MessageComposeResult) {
             parent.presentationMode.wrappedValue.dismiss()
         }
     }

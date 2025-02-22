@@ -9,6 +9,7 @@ import SwiftUI
 import Combine
 
 @available(iOS 13.0, *)
+@MainActor
 class DeviceBindingViewModel: ObservableObject {
     @Published var currentScreen: DeviceBindingWaitingView.Screen = .waiting
     @Published var isShowingMessageCompose = false
@@ -34,26 +35,25 @@ class DeviceBindingViewModel: ObservableObject {
 
         deviceAuthCodeCancellable = $deviceAuthCode
             .sink { [weak self] newValue in
+                guard let self = self else { return }
                 if !newValue.isEmpty {
-                    self?.isShowingMessageCompose = true
+                    self.isShowingMessageCompose = true
                 }
             }
     }
-    
+        
     func startPolling() {
         isLoading = true
         pollingCounter = 0
-        timer?.invalidate() // Invalidate any existing timer
+        timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
-            guard let self = self else { return }
-            if self.pollingCounter < 6 {
-                self.pollingCounter += 1
-                Task {
+            Task { @MainActor in
+                guard let self = self else { return }
+                if self.pollingCounter < 6 {
+                    self.pollingCounter += 1
                     await self.checkDeviceBindingStatus()
-                }
-            } else {
-                self.timer?.invalidate()
-                Task {
+                } else {
+                    self.timer?.invalidate()
                     await self.handleFailure()
                 }
             }
@@ -62,16 +62,17 @@ class DeviceBindingViewModel: ObservableObject {
     
     func checkDeviceBindingStatus() async {
         do {
-            let response = try await NetworkManager.shared.makeRequest(url: URL(string: (ServiceNames.DEVICE_BIND.dynamicParams(with: ["partner": partner])))!, method: "GET")
-            if response["status"] as? String == "SUCCESS" {
+            let response = try await NetworkManager.shared.makeRequest(
+                url: URL(string: ServiceNames.DEVICE_BIND.dynamicParams(with: ["partner": partner]))!,
+                method: "GET"
+            )
+            if response.getString(forKey: "status") == "SUCCESS" {
                 timer?.invalidate()
                 isLoading = false
                 SharedPreferenceManager.shared.setValue(deviceBindingId, forKey: "device_binding_id")
                 SharedPreferenceManager.shared.setValue("\(deviceId)", forKey: "device_id")
-                DispatchQueue.main.async {
-                    self.currentScreen = .mpinsetup // Navigate to success view
-                }
-            } else if response["status"] as? String == "FAILURE" {
+                currentScreen = .mpinsetup
+            } else if response.getString(forKey: "status") == "FAILURE" {
                 timer?.invalidate()
                 await handleFailure()
             }
@@ -83,15 +84,17 @@ class DeviceBindingViewModel: ObservableObject {
     
     func handleFailure() async {
         await failDeviceBinding()
-        DispatchQueue.main.async {
-            self.currentScreen = .failure
-        }
+        currentScreen = .failure
     }
     
     func failDeviceBinding() async {
         do {
             let parameters = ["device_binding_id": deviceBindingId] as [String : Any]
-            let response = try await NetworkManager.shared.makeRequest(url: URL(string: ServiceNames.DEVICE_BIND.dynamicParams(with: ["partner": partner]))!, method: "DELETE", jsonPayload: parameters)
+            _ = try await NetworkManager.shared.makeRequest(
+                url: URL(string: ServiceNames.DEVICE_BIND.dynamicParams(with: ["partner": partner]))!,
+                method: "DELETE",
+                jsonPayload: parameters
+            )
             isLoading = false
         } catch {
             print(error)

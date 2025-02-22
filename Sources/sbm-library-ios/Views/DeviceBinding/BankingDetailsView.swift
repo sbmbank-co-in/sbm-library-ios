@@ -136,10 +136,10 @@ struct BankingDetailsView: View {
         let payload = ["customer_id": cif, "pan": pan, "dob": dobString]
         do {
             let response = try await NetworkManager.shared.makeRequest(url: URL(string: ServiceNames.BANKING_CUSTOMER_CHECK.dynamicParams(with: ["bank": bank]))!, method: "POST", jsonPayload: payload)
-            if (response["type"] as! String == "danger") {
-                alertMessage = response["message"] as! String
+            if (response.getString(forKey: "type") == "danger") {
+                alertMessage = response.getString(forKey: "message") ?? ""
                 showAlert = true
-            } else if (response["type"] as! String == "success") {
+            } else if (response.getString(forKey: "type") == "success") {
                 navigateToDeviceBinding = true
             }
         } catch {

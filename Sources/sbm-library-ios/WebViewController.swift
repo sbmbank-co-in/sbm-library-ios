@@ -229,6 +229,7 @@ extension WebViewController {
         if urlString.contains("/redirect?status=") {
             if let status = url.query?.components(separatedBy: "=").last {
                 // Call the onRedirect callback and pass the status
+                print("here")
                 completion(.redirect(status: status))
             }
             decisionHandler(.cancel) // Stop loading since we're handling it

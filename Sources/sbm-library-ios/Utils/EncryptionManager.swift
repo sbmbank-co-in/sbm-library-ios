@@ -105,9 +105,9 @@ struct EncryptionManager {
     }
     
     private static func getPublicKeyAndKidString() async throws -> (String, String) {
-        if let keyWeb = SharedPreferenceManager.shared.getValue(forKey: StorageKeys.keyWeb),
-           let kid = SharedPreferenceManager.shared.getValue(forKey: StorageKeys.kid),
-           let expiryString = SharedPreferenceManager.shared.getValue(forKey: StorageKeys.keyWebExpiry),
+        if let keyWeb = await SharedPreferenceManager.shared.getValue(forKey: StorageKeys.keyWeb),
+           let kid = await SharedPreferenceManager.shared.getValue(forKey: StorageKeys.kid),
+           let expiryString = await SharedPreferenceManager.shared.getValue(forKey: StorageKeys.keyWebExpiry),
            let expiryDate = Double(expiryString) {
             
             let currentTime = Date().timeIntervalSince1970 * 1000
@@ -124,9 +124,9 @@ struct EncryptionManager {
         var latestKid: String?
         
         for (_, keyData) in response {
-            guard let publicKey = keyData["public"] as? String,
-                  let kid = keyData["kid"] as? String,
-                  let expiryString = keyData["expiry"] as? String else {
+            guard let publicKey = keyData["public"],
+                  let kid = keyData["kid"],
+                  let expiryString = keyData["expiry"] else {
                 continue
             }
             
@@ -149,9 +149,9 @@ struct EncryptionManager {
         }
         
         // Store values
-        SharedPreferenceManager.shared.setValue(finalPublicKey, forKey: StorageKeys.keyWeb)
-        SharedPreferenceManager.shared.setValue(finalKid, forKey: StorageKeys.kid)
-        SharedPreferenceManager.shared.setValue(String(latestExpiry), forKey: StorageKeys.keyWebExpiry)
+        await SharedPreferenceManager.shared.setValue(finalPublicKey, forKey: StorageKeys.keyWeb)
+        await SharedPreferenceManager.shared.setValue(finalKid, forKey: StorageKeys.kid)
+        await SharedPreferenceManager.shared.setValue(String(latestExpiry), forKey: StorageKeys.keyWebExpiry)
         
         return (finalPublicKey, finalKid)
     }

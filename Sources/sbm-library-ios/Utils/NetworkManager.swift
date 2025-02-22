@@ -5,10 +5,11 @@
 //  Created by Varun on 30/10/23.
 //
 
-import Foundation
+@preconcurrency import Foundation
 import UIKit
 
 @available(iOS 13.0, *)
+@MainActor
 public class NetworkManager {
     public static let shared = NetworkManager()
     
@@ -20,19 +21,21 @@ public class NetworkManager {
         return URLSession(configuration: configuration)
     }()
     
-    public func makeRequest(url: URL, method: String, headers: [String: String]? = nil, jsonPayload: [String: Any]? = nil) async throws -> [String: Any] {
+    public func makeRequest(url: URL, method: String, headers: [String: String]? = nil, jsonPayload: [String: Any]? = nil) async throws -> NetworkResponse {
         let encrypted = true
         var mandatoryHeaders = headers ?? [String: String]()
-        mandatoryHeaders["device_uuid"] = await UIDevice.current.identifierForVendor?.uuidString
+        mandatoryHeaders["device_uuid"] = UIDevice.current.identifierForVendor?.uuidString
         mandatoryHeaders["manufacturer"] = "Apple"
         mandatoryHeaders["model"] = UIDevice.modelName
         mandatoryHeaders["os"] = "iOS"
-        mandatoryHeaders["os_version"] = await UIDevice.current.systemVersion
+        mandatoryHeaders["os_version"] = UIDevice.current.systemVersion
         mandatoryHeaders["app_version"] = PackageInfo.version
         if encrypted {
-            return try await makeEncryptedRequest(url: url, method: method, headers: mandatoryHeaders, jsonPayload: jsonPayload)
+            let result = try await makeEncryptedRequest(url: url, method: method, headers: mandatoryHeaders, jsonPayload: jsonPayload)
+            return NetworkResponse(dictionary: result)
         }
-        return try await makeRawRequest(url: url, method: method, headers: mandatoryHeaders, jsonPayload: jsonPayload)
+        let result = try await makeRawRequest(url: url, method: method, headers: mandatoryHeaders, jsonPayload: jsonPayload)
+        return NetworkResponse(dictionary: result)
     }
     
     private func makeRawRequest(url: URL, method: String, headers: [String: String]?, jsonPayload: [String: Any]? = nil) async throws -> [String: Any] {
