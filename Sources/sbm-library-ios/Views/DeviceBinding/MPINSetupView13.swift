@@ -189,13 +189,13 @@ struct MPINSetupView13: View {
         do {
             let response = try await NetworkManager.shared.makeRequest(url: URL(string: ServiceNames.TIME)!, method: "GET")
             let serverTime = response["time"] as! NSNumber
-            let mpinTime = Int(Double(SharedPreferenceManager.shared.getValue(forKey: "MPIN_TIME") ?? String(describing: serverTime)) ?? Double(serverTime))
-            if (abs(Int(serverTime) - mpinTime) >= 7776000000) {
+            let mpinTime = Int(Double(SharedPreferenceManager.shared.getValue(forKey: "MPIN_TIME") ?? String(describing: serverTime)) ?? Double(truncating: serverTime))
+            if (abs(Int(truncating: serverTime) - mpinTime) >= 7776000000) {
                 resetPinFlow = true
             }
             
-            let mpinDisabledTime = Int(Double(SharedPreferenceManager.shared.getValue(forKey: "MPIN_DISABLED_TIME") ?? String(describing: (Int(serverTime)*10))) ?? Double(Int(serverTime)*10))
-            if (abs(Int(serverTime) - mpinDisabledTime) < 1800000) {
+            let mpinDisabledTime = Int(Double(SharedPreferenceManager.shared.getValue(forKey: "MPIN_DISABLED_TIME") ?? String(describing: (Int(truncating: serverTime)*10))) ?? Double(Int(truncating: serverTime)*10))
+            if (abs(Int(truncating: serverTime) - mpinDisabledTime) < 1800000) {
                 isPinDisabled = true
             } else {
                 isPinDisabled = false
@@ -338,7 +338,7 @@ struct MPINSetupView13: View {
     private func setupDeviceSession() async {
         isLoading = true
         do {
-            let parameters = await ["device_uuid": UIDevice.current.identifierForVendor?.uuidString, "manufacturer": "Apple", "model": UIDevice.modelName, "os": "iOS", "os_version": UIDevice.current.systemVersion, "app_version": PackageInfo.version] as [String : Any]
+            let parameters = ["device_uuid": UIDevice.current.identifierForVendor?.uuidString, "manufacturer": "Apple", "model": UIDevice.modelName, "os": "iOS", "os_version": UIDevice.current.systemVersion, "app_version": PackageInfo.version] as [String : Any]
             let response = try await NetworkManager.shared.makeRequest(url: URL(string: ServiceNames.DEVICE_SESSION.dynamicParams(with: ["partner": partner]))!, method: "POST", jsonPayload: parameters)
             isLoading = false
             if response["code"] as? String == "DEVICE_BINDED_SESSION_FAILURE" {

@@ -25,7 +25,7 @@ public class NetworkManager {
         var mandatoryHeaders = headers ?? [String: String]()
         mandatoryHeaders["device_uuid"] = await UIDevice.current.identifierForVendor?.uuidString
         mandatoryHeaders["manufacturer"] = "Apple"
-        mandatoryHeaders["model"] = UIDevice.modelName
+        mandatoryHeaders["model"] = await UIDevice.modelName
         mandatoryHeaders["os"] = "iOS"
         mandatoryHeaders["os_version"] = await UIDevice.current.systemVersion
         mandatoryHeaders["app_version"] = PackageInfo.version

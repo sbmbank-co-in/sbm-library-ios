@@ -34,21 +34,21 @@ public class PartnerLibrary {
         // Create a WebViewController with a dummy preload URL or any required initial state.
         // Optionally, you can load a lightweight webpage or use the final URL later.
         let preloadURL = "\(EnvManager.hostName)"
-        let webVC = WebViewController(urlString: preloadURL) { _ in
+        let webVC = await WebViewController(urlString: preloadURL) { _ in
             // This callback can be empty since it’s just preloading.
             print("here")
         }
         // Trigger view loading so that the WebView begins loading content.
-        _ = webVC.view
+        _ = await webVC.view
         
         // Propagate cookies from HTTPCookieStorage to WKWebView's cookie store.
         if let url = URL(string: preloadURL),
            let cookies = HTTPCookieStorage.shared.cookies(for: url),
            let wkWebView = webVC as? WKWebView
         {
-            let cookieStore: WKHTTPCookieStore = wkWebView.configuration.websiteDataStore.httpCookieStore
+            let cookieStore: WKHTTPCookieStore = await wkWebView.configuration.websiteDataStore.httpCookieStore
             for cookie in cookies {
-                cookieStore.setCookie(cookie, completionHandler: nil)
+                await cookieStore.setCookie(cookie, completionHandler: nil)
             }
         }
         
@@ -63,7 +63,7 @@ public class PartnerLibrary {
         return try await NetworkManager.shared.makeRequest(url: URL(string: ServiceNames.LOGIN)!, method: "POST", jsonPayload: ["token": token])
     }
     
-    public func open(token: String, module: String, callback callback: @escaping (WebViewCallback) -> Void) async throws {
+    public func open(token: String, module: String, callback: @escaping (WebViewCallback) -> Void) async throws {
         let checkLoginResponse = try await checkLogin()
         print("checkLoginResponse: \(checkLoginResponse)")
         if checkLoginResponse["type"] as! String == "success" {
@@ -81,7 +81,7 @@ public class PartnerLibrary {
                 }
             }
         } else {
-            let loginResponse = try await login(token: token)
+            _ = try await login(token: token)
             DispatchQueue.main.async {
                 let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: self.findTopMostViewController())
                 viewTransitionCoordinator.startProcess(module: module, completion: callback)
@@ -124,7 +124,7 @@ public class PartnerLibrary {
             do {
                 let toBindDevice = try await self.checkDeviceBinding(bank: bank)
                 if (toBindDevice) {
-                    let isMPINSet = await !(SharedPreferenceManager.shared.getValue(forKey: "MPIN") ?? "").isEmpty
+                    let isMPINSet = !(SharedPreferenceManager.shared.getValue(forKey: "MPIN") ?? "").isEmpty
                     if (isMPINSet) {
                         self.presentMPINSetup(on: viewController, partner: partner, completion: completion)
                     } else {

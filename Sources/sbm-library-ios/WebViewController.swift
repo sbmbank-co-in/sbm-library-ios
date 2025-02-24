@@ -6,7 +6,7 @@
 //
 
 import Foundation
-import WebKit
+@preconcurrency import WebKit
 import AVFoundation
 import UIKit
 import SwiftUI
@@ -68,12 +68,12 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
             webView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
             webView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor)
         ])
-//        webView.frame = view.bounds
+        //        webView.frame = view.bounds
         
         
         
         if let cookies = HTTPCookieStorage.shared.cookies {
-            for cookie in cookies {
+            for _ in cookies {
                 
             }
         }
@@ -90,7 +90,7 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
     
     override public func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-//        additionalSafeAreaInsets = UIEdgeInsets(top: -view.safeAreaInsets.top, left: 0, bottom: -view.safeAreaInsets.bottom, right: 0)
+        //        additionalSafeAreaInsets = UIEdgeInsets(top: -view.safeAreaInsets.top, left: 0, bottom: -view.safeAreaInsets.bottom, right: 0)
     }
     
     @objc func didSwipe(_ gesture: UISwipeGestureRecognizer) {
@@ -243,6 +243,26 @@ extension WebViewController {
             return
         }
         
+        if let host = url.host, host.contains("sbmkyc") {
+            self.getPermissions { granted in
+                if granted {
+                    // Execute user media call once permissions are granted
+                    webView.evaluateJavaScript("""
+                            navigator.mediaDevices.getUserMedia({ audio: true, video: true })
+                              .catch(function(err) {
+                                console.log('Media permissions error:', err);
+                              });
+                            """) { result, error in
+                        if let error = error {
+                            print("Error evaluating user media JS: \(error)")
+                        }
+                    }
+                } else {
+                    print("Camera and microphone permissions not granted.")
+                }
+            }
+        }
+        
         // Loop through whitelisted URLs to find a match
         for whitelistedUrl in EnvManager.whitelistedUrls {
             if urlString.contains(whitelistedUrl) || urlString.contains(EnvManager.hostName) {
@@ -255,6 +275,43 @@ extension WebViewController {
         // If URL does not match any condition, open it externally
         openURLExternally(url) {
             decisionHandler(.cancel)
+        }
+    }
+    
+    func getPermissions(completion: @escaping (Bool) -> Void) {
+        var cameraGranted = false
+        var micGranted = false
+        let dispatchGroup = DispatchGroup()
+        
+        dispatchGroup.enter()
+        AVCaptureDevice.requestAccess(for: .video) { granted in
+            cameraGranted = granted
+            dispatchGroup.leave()
+        }
+        
+        dispatchGroup.enter()
+        AVAudioSession.sharedInstance().requestRecordPermission { granted in
+            micGranted = granted
+            dispatchGroup.leave()
+        }
+        
+        dispatchGroup.notify(queue: .main) {
+            let isGranted = cameraGranted && micGranted
+            if !isGranted {
+                let alert = UIAlertController(
+                    title: "Permissions Required",
+                    message: "Camera and microphone access are needed for video features. Please enable them in settings.",
+                    preferredStyle: .alert
+                )
+                alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+                alert.addAction(UIAlertAction(title: "Settings", style: .default, handler: { _ in
+                    guard let settingsUrl = URL(string: UIApplication.openSettingsURLString),
+                          UIApplication.shared.canOpenURL(settingsUrl) else { return }
+                    UIApplication.shared.open(settingsUrl)
+                }))
+                self.present(alert, animated: true)
+            }
+            completion(isGranted)
         }
     }
 }
