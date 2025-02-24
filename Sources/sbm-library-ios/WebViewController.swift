@@ -15,6 +15,9 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
     
     private lazy var webView: WKWebView = {
         let webConfiguration = WKWebViewConfiguration()
+        
+        webConfiguration.applicationNameForUserAgent = "Version/8.0.2 Safari/600.2.5"
+        
         let userContentController = WKUserContentController()
         userContentController.add(self, name: "iosListener")
         webConfiguration.userContentController = userContentController
@@ -35,6 +38,9 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
         if #available(iOS 14.0, *) {
             webView.configuration.defaultWebpagePreferences.allowsContentJavaScript = true
         }
+        
+        let userAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1"
+        webView.customUserAgent = userAgent
         
         return webView
     }()
@@ -248,15 +254,18 @@ extension WebViewController {
                 if granted {
                     // Execute user media call once permissions are granted
                     webView.evaluateJavaScript("""
-                            navigator.mediaDevices.getUserMedia({ audio: true, video: true })
-                              .catch(function(err) {
+                        (async function() {
+                            try {
+                                await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+                            } catch (err) {
                                 console.log('Media permissions error:', err);
-                              });
-                            """) { result, error in
-                        if let error = error {
-                            print("Error evaluating user media JS: \(error)")
+                            }
+                        })();
+                        """) { result, error in
+                            if let error = error {
+                                print("Error evaluating user media JS: \(error)")
+                            }
                         }
-                    }
                 } else {
                     print("Camera and microphone permissions not granted.")
                 }
