@@ -338,7 +338,7 @@ struct MPINSetupView13: View {
     private func setupDeviceSession() async {
         isLoading = true
         do {
-            let parameters = ["device_uuid": UIDevice.current.identifierForVendor?.uuidString, "manufacturer": "Apple", "model": UIDevice.modelName, "os": "iOS", "os_version": UIDevice.current.systemVersion, "app_version": PackageInfo.version] as [String : Any]
+            let parameters = ["device_uuid": await UIDevice.current.identifierForVendor?.uuidString, "manufacturer": "Apple", "model": await UIDevice.modelName, "os": "iOS", "os_version": await UIDevice.current.systemVersion, "app_version": PackageInfo.version] as [String : Any]
             let response = try await NetworkManager.shared.makeRequest(url: URL(string: ServiceNames.DEVICE_SESSION.dynamicParams(with: ["partner": partner]))!, method: "POST", jsonPayload: parameters)
             isLoading = false
             if response["code"] as? String == "DEVICE_BINDED_SESSION_FAILURE" {
