@@ -13,7 +13,6 @@ let package = Package(
         .target(
             name: "sbm-library-ios",
             swiftSettings: [
-                .define("SWIFT_VERSION_4_2"),
                 .define("SWIFT_VERSION_5")
             ]
         ),
@@ -22,5 +21,5 @@ let package = Package(
             dependencies: ["sbm-library-ios"]
         ),
     ],
-    swiftLanguageVersions: [.v4_2, .v5]
+    swiftLanguageVersions: [.v5]
 )
