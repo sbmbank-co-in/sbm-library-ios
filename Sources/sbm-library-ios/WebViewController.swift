@@ -15,39 +15,30 @@ import CoreLocation
 public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, CLLocationManagerDelegate {
     
     private lazy var webView: WKWebView = {
-        let webConfiguration = WKWebViewConfiguration()
-        
-        webConfiguration.applicationNameForUserAgent = "Version/8.0.2 Safari/600.2.5"
-        
-        let userContentController = WKUserContentController()
-        userContentController.add(self, name: "iosListener")
-        webConfiguration.userContentController = userContentController
-        
-        // Enable caching
-        webConfiguration.websiteDataStore = WKWebsiteDataStore.default()
-        
-        let webView = WKWebView(frame: .zero, configuration: webConfiguration)
-        webView.navigationDelegate = self
-        webView.uiDelegate = self
-        webView.scrollView.isScrollEnabled = true
-        webView.configuration.preferences.javaScriptEnabled = true
-        webView.configuration.preferences.javaScriptCanOpenWindowsAutomatically = true
-        webView.configuration.allowsInlineMediaPlayback = true
-        webView.configuration.mediaTypesRequiringUserActionForPlayback = []
-        if #available(iOS 15.0, *) {
-            webView.configuration.mediaPlaybackRequiresUserAction = false
-        }
-        webView.configuration.preferences.setValue(true, forKey: "allowFileAccessFromFileURLs")
-        
-        if #available(iOS 14.0, *) {
-            webView.configuration.defaultWebpagePreferences.allowsContentJavaScript = true
-        }
-        
-        let userAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1"
-        webView.customUserAgent = userAgent
-        print("testing webview logs")
-        return webView
-    }()
+           let webConfiguration = WKWebViewConfiguration()
+           webConfiguration.applicationNameForUserAgent = "Version/8.0.2 Safari/600.2.5"
+           let userContentController = WKUserContentController()
+           userContentController.add(self, name: "iosListener")
+           webConfiguration.userContentController = userContentController
+           webConfiguration.websiteDataStore = WKWebsiteDataStore.default()
+           webConfiguration.preferences.javaScriptEnabled = true
+           webConfiguration.preferences.javaScriptCanOpenWindowsAutomatically = true
+           webConfiguration.allowsInlineMediaPlayback = true
+           webConfiguration.mediaTypesRequiringUserActionForPlayback = []
+           if #available(iOS 15.0, *) {
+               webConfiguration.mediaPlaybackRequiresUserAction = false
+           }
+           webConfiguration.preferences.setValue(true, forKey: "allowFileAccessFromFileURLs")
+           if #available(iOS 14.0, *) {
+               webConfiguration.defaultWebpagePreferences.allowsContentJavaScript = true
+           }
+           let webView = WKWebView(frame: .zero, configuration: webConfiguration)
+           webView.navigationDelegate = self
+           webView.uiDelegate = self
+           webView.scrollView.isScrollEnabled = true
+           webView.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1"
+           return webView
+       }()
     var urlString: String?
     var completion: (WebViewCallback) -> Void
     private var locationManager: CLLocationManager?
@@ -241,10 +232,7 @@ extension WebViewController {
             decisionHandler(.cancel)
         }
     }
-//    public func webView(_ webView: WKWebView, runOpenPanelWith parameters: Any, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping ([URL]?) -> Void) {
-//       // requestCameraAndMicrophonePermission()
-//        completionHandler(nil) // Proceed without opening file picker
-//    }
+
     @available(iOS 15.0, *)
     public func webView(_ webView: WKWebView, requestMediaCapturePermissionFor origin: WKSecurityOrigin, initiatedByFrame frame: WKFrameInfo, type: WKMediaCaptureType, decisionHandler: @escaping (WKPermissionDecision) -> Void) {
         print("Media capture permission requested for type: \(type)")
@@ -259,11 +247,14 @@ extension WebViewController {
             completionHandler(.performDefaultHandling, nil)
             return
         }
-        
+
         // Handle permissions for older iOS versions
         if let host = webView.url?.host {
-            if host.contains("meet.") || host.contains("zoom.") {
-                handleMediaPermission(type: "both") { _ in
+            if host.contains("sbmkyc")
+               // ||host.contains(".")
+            {
+                // Handle media permission for older iOS versions
+                handleMediaPermissionForOlderVersions { _ in
                     completionHandler(.performDefaultHandling, nil)
                 }
             } else {
@@ -272,11 +263,14 @@ extension WebViewController {
         }
     }
 
-    private func handleMediaPermission(type: Any, completion: @escaping (Bool) -> Void) {
-        if #available(iOS 15.0, *) {
-            let mediaType = type as! WKMediaCaptureType
-            
-            switch mediaType {
+    private func handleMediaPermissionForOlderVersions(completion: @escaping (Bool) -> Void) {
+        checkBothPermissions { cameraGranted, audioGranted in
+            completion(cameraGranted && audioGranted)
+        }
+    }
+    @available(iOS 15.0, *)
+    private func handleMediaPermission(type: WKMediaCaptureType, completion: @escaping (Bool) -> Void) {
+            switch type {
             case .cameraAndMicrophone:
                 checkBothPermissions { cameraGranted, audioGranted in
                     completion(cameraGranted && audioGranted)
@@ -289,18 +283,17 @@ extension WebViewController {
                 completion(false)
             }
         }
-    }
 
-    private func checkBothPermissions(completion: @escaping (Bool, Bool) -> Void) {
-        handleCameraPermission { cameraGranted in
-            self.handleAudioPermission { audioGranted in
-                completion(cameraGranted, audioGranted)
+        private func checkBothPermissions(completion: @escaping (Bool, Bool) -> Void) {
+            handleCameraPermission { cameraGranted in
+                self.handleAudioPermission { audioGranted in
+                    completion(cameraGranted, audioGranted)
+                }
             }
         }
-    }
-    
-    private func handleCameraPermission(completion: @escaping (Bool) -> Void) {
-        switch AVCaptureDevice.authorizationStatus(for: .video) {
+
+        private func handleCameraPermission(completion: @escaping (Bool) -> Void) {
+            switch AVCaptureDevice.authorizationStatus(for: .video) {
             case .notDetermined:
                 AVCaptureDevice.requestAccess(for: .video) { granted in
                     DispatchQueue.main.async {
@@ -319,62 +312,57 @@ extension WebViewController {
                 completion(true)
             @unknown default:
                 completion(false)
-        }
-    }
-
-    private func handleAudioPermission(completion: @escaping (Bool) -> Void) {
-        switch AVCaptureDevice.authorizationStatus(for: .audio) {
-        case .notDetermined:
-            AVCaptureDevice.requestAccess(for: .audio) { granted in
-                DispatchQueue.main.async {
-                    if !granted {
-                        self.showPermissionAlert(for: "Microphone")
-                    }
-                    completion(granted)
-                }
             }
-        case .restricted, .denied:
-            DispatchQueue.main.async {
-                self.showPermissionAlert(for: "Microphone")
+        }
+
+        private func handleAudioPermission(completion: @escaping (Bool) -> Void) {
+            switch AVCaptureDevice.authorizationStatus(for: .audio) {
+            case .notDetermined:
+                AVCaptureDevice.requestAccess(for: .audio) { granted in
+                    DispatchQueue.main.async {
+                        if !granted {
+                            self.showPermissionAlert(for: "Microphone")
+                        }
+                        completion(granted)
+                    }
+                }
+            case .restricted, .denied:
+                DispatchQueue.main.async {
+                    self.showPermissionAlert(for: "Microphone")
+                    completion(false)
+                }
+            case .authorized:
+                completion(true)
+            @unknown default:
                 completion(false)
             }
-        case .authorized:
-            completion(true)
-        @unknown default:
-            completion(false)
         }
-    }
-
         // Handle navigation decisions
-        public func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse, decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
-            if let url = navigationResponse.response.url, url.absoluteString.contains("location") {
-                print("requesting permission")
-               // requestLocationPermission()
-              //  requestCameraAndMicrophonePermission()
-            }
-            decisionHandler(.allow)
-        }
+//        public func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse, decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
+//            if let url = navigationResponse.response.url, url.absoluteString.contains("location") {
+//                print("requesting permission")
+//               // requestLocationPermission()
+//              //  requestCameraAndMicrophonePermission()
+//            }
+//            decisionHandler(.allow)
+//        }
 
       
     private func showPermissionAlert(for type: String) {
-        DispatchQueue.main.async {
-            let alert = UIAlertController(
-                title: "\(type) Access Required",
-                message: "Please enable \(type) access in Settings to use this feature",
-                preferredStyle: .alert
-            )
-            
-            alert.addAction(UIAlertAction(title: "Settings", style: .default) { _ in
-                if let settingsURL = URL(string: UIApplication.openSettingsURLString) {
-                    UIApplication.shared.open(settingsURL)
-                }
-            })
-            
-            alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-            
-            self.present(alert, animated: true)
-        }
-    }
+           let alert = UIAlertController(
+               title: "\(type) Access Required",
+               message: "Please enable \(type) access in Settings to use this feature",
+               preferredStyle: .alert
+           )
+           alert.addAction(UIAlertAction(title: "Settings", style: .default) { _ in
+               if let settingsURL = URL(string: UIApplication.openSettingsURLString) {
+                   UIApplication.shared.open(settingsURL)
+               }
+           })
+           alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+           self.present(alert, animated: true)
+       }
+    
 
 
 
