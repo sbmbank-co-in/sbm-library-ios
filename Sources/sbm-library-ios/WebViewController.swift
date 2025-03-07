@@ -10,8 +10,9 @@ import Foundation
 import AVFoundation
 import UIKit
 import SwiftUI
+import CoreLocation
 
-public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDelegate {
+public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, CLLocationManagerDelegate {
     
     private lazy var webView: WKWebView = {
         let webConfiguration = WKWebViewConfiguration()
@@ -33,6 +34,9 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
         webView.configuration.preferences.javaScriptCanOpenWindowsAutomatically = true
         webView.configuration.allowsInlineMediaPlayback = true
         webView.configuration.mediaTypesRequiringUserActionForPlayback = []
+        if #available(iOS 15.0, *) {
+            webView.configuration.mediaPlaybackRequiresUserAction = false
+        }
         webView.configuration.preferences.setValue(true, forKey: "allowFileAccessFromFileURLs")
         
         if #available(iOS 14.0, *) {
@@ -41,16 +45,20 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
         
         let userAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1"
         webView.customUserAgent = userAgent
-        
+        print("testing webview logs")
         return webView
     }()
     var urlString: String?
     var completion: (WebViewCallback) -> Void
+    private var locationManager: CLLocationManager?
+    private var locationGranted: Bool = false
     
     public init(urlString: String?, completion: @escaping (WebViewCallback) -> Void) {
         self.urlString = urlString
         self.completion = completion
         super.init(nibName: nil, bundle: nil)
+        self.locationManager = CLLocationManager()
+        self.locationManager?.delegate = self
     }
     
     required init?(coder aDecoder: NSCoder) {
@@ -59,7 +67,6 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
     
     override public func viewDidLoad() {
         super.viewDidLoad()
-        
         view.backgroundColor = .white
         
         let swipeBack = UISwipeGestureRecognizer(target: self, action: #selector(didSwipe(_:)))
@@ -164,36 +171,7 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
     }
     
     public func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
-        let isCameraActionRequiredScript = "typeof capture === 'function'"
         
-        webView.evaluateJavaScript(isCameraActionRequiredScript) { result, error in
-            if let error = error {
-                print("JavaScript evaluation error: \(error)")
-            } else if let isFunction = result as? Bool, isFunction {
-                self.handleCameraAction()
-            } else {
-                
-            }
-        }
-    }
-    
-    func handleCameraAction() {
-        requestCameraPermission { [weak self] granted in
-            guard let self = self else { return }
-            if granted {
-                self.webView.evaluateJavaScript("takePhoto();")
-            } else {
-                print("Camera permission denied")
-            }
-        }
-    }
-    
-    func requestCameraPermission(completion: @escaping (Bool) -> Void) {
-        AVCaptureDevice.requestAccess(for: .video) { granted in
-            DispatchQueue.main.async {
-                completion(granted)
-            }
-        }
     }
     
     private func openURLExternally(_ url: URL, completion: @escaping () -> Void) {
@@ -249,29 +227,6 @@ extension WebViewController {
             return
         }
         
-        if let host = url.host, host.contains("sbmkyc") {
-            self.getPermissions { granted in
-                if granted {
-                    // Execute user media call once permissions are granted
-                    webView.evaluateJavaScript("""
-                        (async function() {
-                            try {
-                                await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-                            } catch (err) {
-                                console.log('Media permissions error:', err);
-                            }
-                        })();
-                        """) { result, error in
-                            if let error = error {
-                                print("Error evaluating user media JS: \(error)")
-                            }
-                        }
-                } else {
-                    print("Camera and microphone permissions not granted.")
-                }
-            }
-        }
-        
         // Loop through whitelisted URLs to find a match
         for whitelistedUrl in EnvManager.whitelistedUrls {
             if urlString.contains(whitelistedUrl) || urlString.contains(EnvManager.hostName) {
@@ -286,41 +241,153 @@ extension WebViewController {
             decisionHandler(.cancel)
         }
     }
-    
-    func getPermissions(completion: @escaping (Bool) -> Void) {
-        var cameraGranted = false
-        var micGranted = false
-        let dispatchGroup = DispatchGroup()
-        
-        dispatchGroup.enter()
-        AVCaptureDevice.requestAccess(for: .video) { granted in
-            cameraGranted = granted
-            dispatchGroup.leave()
-        }
-        
-        dispatchGroup.enter()
-        AVAudioSession.sharedInstance().requestRecordPermission { granted in
-            micGranted = granted
-            dispatchGroup.leave()
-        }
-        
-        dispatchGroup.notify(queue: .main) {
-            let isGranted = cameraGranted && micGranted
-            if !isGranted {
-                let alert = UIAlertController(
-                    title: "Permissions Required",
-                    message: "Camera and microphone access are needed for video features. Please enable them in settings.",
-                    preferredStyle: .alert
-                )
-                alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-                alert.addAction(UIAlertAction(title: "Settings", style: .default, handler: { _ in
-                    guard let settingsUrl = URL(string: UIApplication.openSettingsURLString),
-                          UIApplication.shared.canOpenURL(settingsUrl) else { return }
-                    UIApplication.shared.open(settingsUrl)
-                }))
-                self.present(alert, animated: true)
-            }
-            completion(isGranted)
+//    public func webView(_ webView: WKWebView, runOpenPanelWith parameters: Any, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping ([URL]?) -> Void) {
+//       // requestCameraAndMicrophonePermission()
+//        completionHandler(nil) // Proceed without opening file picker
+//    }
+    @available(iOS 15.0, *)
+    public func webView(_ webView: WKWebView, requestMediaCapturePermissionFor origin: WKSecurityOrigin, initiatedByFrame frame: WKFrameInfo, type: WKMediaCaptureType, decisionHandler: @escaping (WKPermissionDecision) -> Void) {
+        print("Media capture permission requested for type: \(type)")
+        handleMediaPermission(type: type) { granted in
+            decisionHandler(granted ? .grant : .deny)
         }
     }
+
+    // For iOS 14 and below
+    public func webView(_ webView: WKWebView, didReceiveAuthenticationChallenge challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+        if #available(iOS 15.0, *) {
+            completionHandler(.performDefaultHandling, nil)
+            return
+        }
+        
+        // Handle permissions for older iOS versions
+        if let host = webView.url?.host {
+            if host.contains("meet.") || host.contains("zoom.") {
+                handleMediaPermission(type: "both") { _ in
+                    completionHandler(.performDefaultHandling, nil)
+                }
+            } else {
+                completionHandler(.performDefaultHandling, nil)
+            }
+        }
+    }
+
+    private func handleMediaPermission(type: Any, completion: @escaping (Bool) -> Void) {
+        if #available(iOS 15.0, *) {
+            let mediaType = type as! WKMediaCaptureType
+            
+            switch mediaType {
+            case .cameraAndMicrophone:
+                checkBothPermissions { cameraGranted, audioGranted in
+                    completion(cameraGranted && audioGranted)
+                }
+            case .camera:
+                handleCameraPermission(completion: completion)
+            case .microphone:
+                handleAudioPermission(completion: completion)
+            @unknown default:
+                completion(false)
+            }
+        }
+    }
+
+    private func checkBothPermissions(completion: @escaping (Bool, Bool) -> Void) {
+        handleCameraPermission { cameraGranted in
+            self.handleAudioPermission { audioGranted in
+                completion(cameraGranted, audioGranted)
+            }
+        }
+    }
+    
+    private func handleCameraPermission(completion: @escaping (Bool) -> Void) {
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+            case .notDetermined:
+                AVCaptureDevice.requestAccess(for: .video) { granted in
+                    DispatchQueue.main.async {
+                        if !granted {
+                            self.showPermissionAlert(for: "Camera")
+                        }
+                        completion(granted)
+                    }
+                }
+            case .restricted, .denied:
+                DispatchQueue.main.async {
+                    self.showPermissionAlert(for: "Camera")
+                    completion(false)
+                }
+            case .authorized:
+                completion(true)
+            @unknown default:
+                completion(false)
+        }
+    }
+
+    private func handleAudioPermission(completion: @escaping (Bool) -> Void) {
+        switch AVCaptureDevice.authorizationStatus(for: .audio) {
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .audio) { granted in
+                DispatchQueue.main.async {
+                    if !granted {
+                        self.showPermissionAlert(for: "Microphone")
+                    }
+                    completion(granted)
+                }
+            }
+        case .restricted, .denied:
+            DispatchQueue.main.async {
+                self.showPermissionAlert(for: "Microphone")
+                completion(false)
+            }
+        case .authorized:
+            completion(true)
+        @unknown default:
+            completion(false)
+        }
+    }
+
+        // Handle navigation decisions
+        public func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse, decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
+            if let url = navigationResponse.response.url, url.absoluteString.contains("location") {
+                print("requesting permission")
+               // requestLocationPermission()
+              //  requestCameraAndMicrophonePermission()
+            }
+            decisionHandler(.allow)
+        }
+
+      
+    private func showPermissionAlert(for type: String) {
+        DispatchQueue.main.async {
+            let alert = UIAlertController(
+                title: "\(type) Access Required",
+                message: "Please enable \(type) access in Settings to use this feature",
+                preferredStyle: .alert
+            )
+            
+            alert.addAction(UIAlertAction(title: "Settings", style: .default) { _ in
+                if let settingsURL = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(settingsURL)
+                }
+            })
+            
+            alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+            
+            self.present(alert, animated: true)
+        }
+    }
+
+
+
+        // Handle location permission changes
+        public func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
+            switch status {
+            case .authorizedWhenInUse, .authorizedAlways:
+                locationGranted = true
+            default:
+                locationGranted = false
+            }
+        }
+    
 }
+
+
