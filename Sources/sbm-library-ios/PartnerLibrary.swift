@@ -76,24 +76,24 @@ public class PartnerLibrary {
         if checkLoginResponse["type"] as! String == "success" {
             if checkLoginResponse["is_loggedin"] as! Int == 1 {
                 DispatchQueue.main.async {
-                    let effectiveVC: UIViewController = self.parentNavigationController ?? viewController
-                    let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: effectiveVC)
+                    // Pass the original view controller directly
+                    let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: viewController)
                     viewTransitionCoordinator.startProcess(module: module, completion: callback)
                 }
             } else {
                 let loginResponse = try await login(token: token)
                 print("loginResponse: \(loginResponse)")
                 DispatchQueue.main.async {
-                    let effectiveVC: UIViewController = self.parentNavigationController ?? viewController
-                    let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: effectiveVC)
+                    // Pass the original view controller directly
+                    let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: viewController)
                     viewTransitionCoordinator.startProcess(module: module, completion: callback)
                 }
             }
         } else {
             _ = try await login(token: token)
             DispatchQueue.main.async {
-                let effectiveVC: UIViewController = self.parentNavigationController ?? viewController
-                let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: effectiveVC)
+                // Pass the original view controller directly
+                let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: viewController)
                 viewTransitionCoordinator.startProcess(module: module, completion: callback)
             }
         }
@@ -260,12 +260,10 @@ class ViewTransitionCoordinator {
             }
             
             if let navController = self.viewController.navigationController {
-                print("Using passed view controller's navigationController")
-                print("Before push, stack: \(navController.viewControllers)")
+                print("Using view controller's navigation controller: \(navController)")
                 navController.pushViewController(webVC, animated: false)
                 navController.setNavigationBarHidden(EnvManager.navigationBarDisabled, animated: false)
-                print("After push, stack: \(navController.viewControllers)")
-                print("Visible VC after push: \(navController.visibleViewController.debugDescription)")
+                print("Navigation stack after push: \(navController.viewControllers)")
             } else {
                 print("No navigation controller found, falling back to modal presentation")
                 let navVC = UINavigationController(rootViewController: webVC)

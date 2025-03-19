@@ -207,14 +207,14 @@ extension WebViewController {
                 completion(.redirect(status: status))
             }
             decisionHandler(.cancel) // Stop loading since we're handling it
-            self.dismiss(animated: true)
+            dismissWebView()
             return
         }
         
         if urlString.contains("session-expired") {
             completion(.logout)
             decisionHandler(.cancel) // Stop loading
-            self.dismiss(animated: true)
+            dismissWebView()
             return
         }
         
@@ -375,6 +375,21 @@ extension WebViewController {
                 locationGranted = false
             }
         }
+        func dismissWebView(animated: Bool = true, completion: (() -> Void)? = nil) {
+                if let navigationController = self.navigationController {
+                    // Check if this is the last view controller in stack
+                    if navigationController.viewControllers.count > 1 {
+                        navigationController.popViewController(animated: animated)
+                        completion?()
+                    } else {
+                        // If it's the only view controller, dismiss the whole navigation stack
+                        navigationController.dismiss(animated: animated, completion: completion)
+                    }
+                } else {
+                    // If there's no navigation controller, just dismiss
+                    self.dismiss(animated: animated, completion: completion)
+                }
+            }
     
 }
 
