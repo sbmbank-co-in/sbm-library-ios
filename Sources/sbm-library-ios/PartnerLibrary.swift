@@ -17,6 +17,12 @@ public class PartnerLibrary {
     var preloadedWebVC: WebViewController?
     var onMPINSetupSuccess: (() -> Void)?
     
+    private weak var parentNavigationController: UINavigationController?
+    
+    public func setParentNavigationController(_ navController: UINavigationController) {
+        self.parentNavigationController = navController
+    }
+    
     init(hostName: String, deviceBindingEnabled: Bool, whitelistedUrls: Array<String>, navigationBarDisabled: Bool) {
         self.hostName = hostName
         self.deviceBindingEnabled = deviceBindingEnabled
@@ -66,24 +72,28 @@ public class PartnerLibrary {
     public func open(token: String, module: String, callback: @escaping (WebViewCallback) -> Void) async throws {
         let checkLoginResponse = try await checkLogin()
         print("checkLoginResponse: \(checkLoginResponse)")
+        
         if checkLoginResponse["type"] as! String == "success" {
             if checkLoginResponse["is_loggedin"] as! Int == 1 {
                 DispatchQueue.main.async {
-                    let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: self.findTopMostViewController())
+                    let effectiveVC: UIViewController = self.parentNavigationController ?? self.findTopMostViewController()
+                    let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: effectiveVC)
                     viewTransitionCoordinator.startProcess(module: module, completion: callback)
                 }
             } else {
                 let loginResponse = try await login(token: token)
                 print("loginResponse: \(loginResponse)")
                 DispatchQueue.main.async {
-                    let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: self.findTopMostViewController())
+                    let effectiveVC: UIViewController = self.parentNavigationController ?? self.findTopMostViewController()
+                    let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: effectiveVC)
                     viewTransitionCoordinator.startProcess(module: module, completion: callback)
                 }
             }
         } else {
             _ = try await login(token: token)
             DispatchQueue.main.async {
-                let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: self.findTopMostViewController())
+                let effectiveVC: UIViewController = self.parentNavigationController ?? self.findTopMostViewController()
+                let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: effectiveVC)
                 viewTransitionCoordinator.startProcess(module: module, completion: callback)
             }
         }
@@ -132,6 +142,7 @@ public class PartnerLibrary {
                     }
                 } else {
                     let parameters = await ["device_uuid": UIDevice.current.identifierForVendor?.uuidString, "manufacturer": "Apple", "model": UIDevice.modelName, "os": "iOS", "os_version": UIDevice.current.systemVersion, "app_version": PackageInfo.version] as [String : Any]
+                    print(parameters)
                     let response = try await NetworkManager.shared.makeRequest(url: URL(string: ServiceNames.DEVICE_SESSION.dynamicParams(with: ["partner": partner]))!, method: "POST", jsonPayload: parameters)
                     print("Bind Device to Session response: \(response)")
                     if response["code"] as? String == "DEVICE_BINDED_SESSION_FAILURE" {
@@ -182,15 +193,19 @@ class ViewTransitionCoordinator {
     }
     
     func startProcess(module: String, completion: @escaping (WebViewCallback) -> Void) {
-        DispatchQueue.main.async {
-            self.presentLoaderView()
-        }
+//        DispatchQueue.main.async {
+//            self.presentLoaderView()
+//        }
+        
+        presentLoaderView()
         
         Task { MainActor.self
             await bindDevice(module: module)
             
+            self.dismissLoaderView()
+            
             self.openLibrary(module: module) { callback in
-                self.dismissLoaderView()
+//                self.dismissLoaderView()
                 completion(callback)
             }
         }
@@ -224,7 +239,7 @@ class ViewTransitionCoordinator {
             }
         }
         library.bindDevice(on: viewController, bank: bank, partner: partner) {
-            print("here")
+            print("bind device complete")
         }
     }
     
@@ -244,18 +259,19 @@ class ViewTransitionCoordinator {
                 }
             }
             
-            if let navigationController = self.viewController.navigationController {
-                navigationController.pushViewController(webVC, animated: false)
-                navigationController.setNavigationBarHidden(EnvManager.navigationBarDisabled, animated: false)
+            if let navController = self.viewController.navigationController {
+                print("Using passed view controller's navigationController")
+                print("Before push, stack: \(navController.viewControllers)")
+                navController.pushViewController(webVC, animated: false)
+                navController.setNavigationBarHidden(EnvManager.navigationBarDisabled, animated: false)
+                print("After push, stack: \(navController.viewControllers)")
+                print("Visible VC after push: \(navController.visibleViewController.debugDescription)")
             } else {
+                print("No navigation controller found, falling back to modal presentation")
                 let navVC = UINavigationController(rootViewController: webVC)
                 navVC.modalPresentationStyle = .fullScreen
                 navVC.setNavigationBarHidden(EnvManager.navigationBarDisabled, animated: false)
-                if let loaderVC = self.loaderViewController {
-                    loaderVC.present(navVC, animated: false)
-                } else {
-                    self.viewController.present(navVC, animated: false)
-                }
+                self.viewController.present(navVC, animated: false)
             }
         }
     }
