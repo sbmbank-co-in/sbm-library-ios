@@ -69,14 +69,14 @@ public class PartnerLibrary {
         return try await NetworkManager.shared.makeRequest(url: URL(string: ServiceNames.LOGIN)!, method: "POST", jsonPayload: ["token": token])
     }
     
-    public func open(token: String, module: String, callback: @escaping (WebViewCallback) -> Void) async throws {
+    public func open(from viewController: UIViewController, token: String, module: String, callback: @escaping (WebViewCallback) -> Void) async throws {
         let checkLoginResponse = try await checkLogin()
         print("checkLoginResponse: \(checkLoginResponse)")
         
         if checkLoginResponse["type"] as! String == "success" {
             if checkLoginResponse["is_loggedin"] as! Int == 1 {
                 DispatchQueue.main.async {
-                    let effectiveVC: UIViewController = self.parentNavigationController ?? self.findTopMostViewController()
+                    let effectiveVC: UIViewController = self.parentNavigationController ?? viewController
                     let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: effectiveVC)
                     viewTransitionCoordinator.startProcess(module: module, completion: callback)
                 }
@@ -84,7 +84,7 @@ public class PartnerLibrary {
                 let loginResponse = try await login(token: token)
                 print("loginResponse: \(loginResponse)")
                 DispatchQueue.main.async {
-                    let effectiveVC: UIViewController = self.parentNavigationController ?? self.findTopMostViewController()
+                    let effectiveVC: UIViewController = self.parentNavigationController ?? viewController
                     let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: effectiveVC)
                     viewTransitionCoordinator.startProcess(module: module, completion: callback)
                 }
@@ -92,7 +92,7 @@ public class PartnerLibrary {
         } else {
             _ = try await login(token: token)
             DispatchQueue.main.async {
-                let effectiveVC: UIViewController = self.parentNavigationController ?? self.findTopMostViewController()
+                let effectiveVC: UIViewController = self.parentNavigationController ?? viewController
                 let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: effectiveVC)
                 viewTransitionCoordinator.startProcess(module: module, completion: callback)
             }
