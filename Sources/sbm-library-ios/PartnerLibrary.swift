@@ -69,7 +69,7 @@ public class PartnerLibrary {
         return try await NetworkManager.shared.makeRequest(url: URL(string: ServiceNames.LOGIN)!, method: "POST", jsonPayload: ["token": token])
     }
     
-    public func open(from viewController: UIViewController, token: String, module: String, callback: @escaping (WebViewCallback) -> Void) async throws {
+    public func open(on viewController: UIViewController, token: String, module: String, callback: @escaping (WebViewCallback) -> Void) async throws {
         let checkLoginResponse = try await checkLogin()
         print("checkLoginResponse: \(checkLoginResponse)")
         
@@ -193,9 +193,9 @@ class ViewTransitionCoordinator {
     }
     
     func startProcess(module: String, completion: @escaping (WebViewCallback) -> Void) {
-//        DispatchQueue.main.async {
-//            self.presentLoaderView()
-//        }
+        //        DispatchQueue.main.async {
+        //            self.presentLoaderView()
+        //        }
         
         presentLoaderView()
         
@@ -205,7 +205,7 @@ class ViewTransitionCoordinator {
             self.dismissLoaderView()
             
             self.openLibrary(module: module) { callback in
-//                self.dismissLoaderView()
+                //                self.dismissLoaderView()
                 completion(callback)
             }
         }
