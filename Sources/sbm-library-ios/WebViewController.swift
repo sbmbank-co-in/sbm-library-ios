@@ -202,11 +202,18 @@ extension WebViewController {
         
         print(urlString)
         
-        if urlString.contains("/redirect?status=") {
+        if urlString.contains("api/user/redirect?status=") {
             if let status = url.query?.components(separatedBy: "=").last {
                 // Call the onRedirect callback and pass the status
                 completion(.redirect(status: status))
             }
+            decisionHandler(.cancel) // Stop loading since we're handling it
+            dismissWebView()
+            return
+        }
+        if url.absoluteString.contains("api/user/redirect") {
+            let status = url.lastPathComponent
+            completion(.redirect(status: status))
             decisionHandler(.cancel) // Stop loading since we're handling it
             dismissWebView()
             return
