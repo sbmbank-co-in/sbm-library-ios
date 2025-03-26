@@ -22,10 +22,12 @@ public class PartnerLibrary {
     public func setParentNavigationController(_ navController: UINavigationController) {
         self.parentNavigationController = navController
     }
+    private var deeplinkScreenMap: [String: String] = [:]
     
-    init(hostName: String, deviceBindingEnabled: Bool, whitelistedUrls: Array<String>, navigationBarDisabled: Bool) {
+    init(hostName: String, deviceBindingEnabled: Bool, whitelistedUrls: Array<String>, navigationBarDisabled: Bool, deeplinkScreenMap:[String: String]) {
         self.hostName = hostName
         self.deviceBindingEnabled = deviceBindingEnabled
+        self.deeplinkScreenMap = deeplinkScreenMap
         EnvManager.hostName = hostName
         EnvManager.deviceBindingEnabled = deviceBindingEnabled
         EnvManager.whitelistedUrls = whitelistedUrls
@@ -35,6 +37,7 @@ public class PartnerLibrary {
             await preloadWebView()
         }
     }
+    public func getDeeplinkScreenMap() -> [String: String]{ return deeplinkScreenMap}
     
     private func preloadWebView() async {
         // Create a WebViewController with a dummy preload URL or any required initial state.
@@ -42,7 +45,7 @@ public class PartnerLibrary {
         let preloadURL = "\(EnvManager.hostName)"
         let webVC = await WebViewController(urlString: preloadURL) { _ in
             // This callback can be empty since it’s just preloading.
-            print("here")
+            debugPrint("here")
         }
         // Trigger view loading so that the WebView begins loading content.
         _ = await webVC.view
@@ -71,7 +74,7 @@ public class PartnerLibrary {
     
     public func open(on viewController: UIViewController, token: String, module: String, callback: @escaping (WebViewCallback) -> Void) async throws {
         let checkLoginResponse = try await checkLogin()
-        print("checkLoginResponse: \(checkLoginResponse)")
+        debugPrint("checkLoginResponse: \(checkLoginResponse)")
         
         if checkLoginResponse["type"] as! String == "success" {
             if checkLoginResponse["is_loggedin"] as! Int == 1 {
@@ -82,7 +85,7 @@ public class PartnerLibrary {
                 }
             } else {
                 let loginResponse = try await login(token: token)
-                print("loginResponse: \(loginResponse)")
+                debugPrint("loginResponse: \(loginResponse)")
                 DispatchQueue.main.async {
                     // Pass the original view controller directly
                     let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: viewController)
@@ -142,9 +145,9 @@ public class PartnerLibrary {
                     }
                 } else {
                     let parameters = await ["device_uuid": UIDevice.current.identifierForVendor?.uuidString, "manufacturer": "Apple", "model": UIDevice.modelName, "os": "iOS", "os_version": UIDevice.current.systemVersion, "app_version": PackageInfo.version] as [String : Any]
-                    print(parameters)
+                    debugPrint(parameters)
                     let response = try await NetworkManager.shared.makeRequest(url: URL(string: ServiceNames.DEVICE_SESSION.dynamicParams(with: ["partner": partner]))!, method: "POST", jsonPayload: parameters)
-                    print("Bind Device to Session response: \(response)")
+                    debugPrint("Bind Device to Session response: \(response)")
                     if response["code"] as? String == "DEVICE_BINDED_SESSION_FAILURE" {
                         completion()
                     } else {
@@ -152,7 +155,7 @@ public class PartnerLibrary {
                     }
                 }
             } catch {
-                print(error)
+                debugPrint(error)
                 completion()
             }
         }
@@ -239,7 +242,7 @@ class ViewTransitionCoordinator {
             }
         }
         library.bindDevice(on: viewController, bank: bank, partner: partner) {
-            print("bind device complete")
+            debugPrint("bind device complete")
         }
     }
     
@@ -247,11 +250,14 @@ class ViewTransitionCoordinator {
         DispatchQueue.main.async {
             let webVC: WebViewController
             let newUrl = "\(EnvManager.hostName)\(module)"
+            let screenMap = self.library.getDeeplinkScreenMap()
+
             if let preloaded = self.library.preloadedWebVC {
                 webVC = preloaded
                 webVC.setCallback { result in
                     completion(result)
                 }
+                webVC.setDeeplinkScreenMap(screenMap)
                 webVC.updateAndReload(with: newUrl)
             } else {
                 webVC = WebViewController(urlString: "\(EnvManager.hostName)\(module)") { result in
@@ -260,12 +266,12 @@ class ViewTransitionCoordinator {
             }
             
             if let navController = self.viewController.navigationController {
-                print("Using view controller's navigation controller: \(navController)")
+                debugPrint("Using view controller's navigation controller: \(navController)")
                 navController.pushViewController(webVC, animated: false)
                 navController.setNavigationBarHidden(EnvManager.navigationBarDisabled, animated: false)
-                print("Navigation stack after push: \(navController.viewControllers)")
+                debugPrint("Navigation stack after push: \(navController.viewControllers)")
             } else {
-                print("No navigation controller found, falling back to modal presentation")
+                debugPrint("No navigation controller found, falling back to modal presentation")
                 let navVC = UINavigationController(rootViewController: webVC)
                 navVC.modalPresentationStyle = .fullScreen
                 navVC.setNavigationBarHidden(EnvManager.navigationBarDisabled, animated: false)
