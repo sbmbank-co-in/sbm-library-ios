@@ -67,7 +67,7 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
     
     override public func viewDidLoad() {
         super.viewDidLoad()
-        self.restorationIdentifier = "2222"
+        self.restorationIdentifier = "1235"
         view.backgroundColor = .white
         
         let swipeBack = UISwipeGestureRecognizer(target: self, action: #selector(didSwipe(_:)))
