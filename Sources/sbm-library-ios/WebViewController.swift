@@ -43,13 +43,22 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
     var completion: (WebViewCallback) -> Void
     private var locationManager: CLLocationManager?
     private var locationGranted: Bool = false
+    private var deeplinkScreenMap: [String: String] = [:]
+    public func setDeeplinkScreenMap(_ map: [String: String]) {
+        deeplinkScreenMap = map
+    }
     
-    public init(urlString: String?, completion: @escaping (WebViewCallback) -> Void) {
+    public func getDeeplinkScreenMap() -> [String: String] {
+        return deeplinkScreenMap
+    }
+    
+    public init(urlString: String?, completion: @escaping (WebViewCallback) -> Void, deeplinkScreenMap: [String: String] = [:]) {
         self.urlString = urlString
         self.completion = completion
         super.init(nibName: nil, bundle: nil)
         self.locationManager = CLLocationManager()
         self.locationManager?.delegate = self
+        self.deeplinkScreenMap = deeplinkScreenMap
     }
     
     required init?(coder aDecoder: NSCoder) {
@@ -88,7 +97,7 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
         
         loadRequestWithCookies(completion: { error in
             if let error = error {
-                print("Error loading webView: \(error)")
+                debugPrint("Error loading webView: \(error)")
             }
         })
     }
@@ -142,7 +151,7 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
         self.urlString = urlString
         loadRequestWithCookies { error in
             if let error = error {
-                print("Error reloading WebView: \(error)")
+                debugPrint("Error reloading WebView: \(error)")
             }
         }
     }
@@ -152,7 +161,7 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
     }
     
     public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-        print("WebView navigation failed: \(error)")
+        debugPrint("WebView navigation failed: \(error)")
     }
     
     public func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
@@ -182,7 +191,7 @@ extension WebViewController: WKScriptMessageHandler {
     public func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         if message.name == "spense_library" {
             if let messageBody = message.body as? String {
-                print("Received message from web: \(messageBody)")
+                debugPrint("Received message from web: \(messageBody)")
                 // Handle the message or perform an action based on the message content
             }
         }
@@ -200,7 +209,7 @@ extension WebViewController {
         // Convert your logic to Swift
         let urlString = url.absoluteString
         
-        print(urlString)
+        debugPrint(urlString)
         
         if urlString.contains("api/user/redirect?status=") {
             if let status = url.query?.components(separatedBy: "=").last {
@@ -208,21 +217,24 @@ extension WebViewController {
                 completion(.redirect(status: status))
             }
             decisionHandler(.cancel) // Stop loading since we're handling it
-            dismissWebView()
+          //  dismissWebView()
+            self.dismiss(animated: true)
             return
         }
         if url.absoluteString.contains("api/user/redirect") {
             let status = url.lastPathComponent
             completion(.redirect(status: status))
             decisionHandler(.cancel) // Stop loading since we're handling it
-            dismissWebView()
+           // dismissWebView()
+            self.dismiss(animated: true)
             return
         }
         
         if urlString.contains("session-expired") {
             completion(.logout)
             decisionHandler(.cancel) // Stop loading
-            dismissWebView()
+           // dismissWebView()
+            self.dismiss(animated: true)
             return
         }
         
@@ -235,15 +247,76 @@ extension WebViewController {
             }
         }
         
-        // If URL does not match any condition, open it externally
-        openURLExternally(url) {
+        if tryDeepLink(url) {
             decisionHandler(.cancel)
+        } else {
+            debugPrint("Deep link failed, opening externally")
+            handleExternalURL(url)
+            decisionHandler(.cancel)
+        }
+    }
+    
+    private func tryDeepLink(_ url: URL) -> Bool {
+        debugPrint("🔍 Processing URL: \(url.absoluteString)")
+        
+        guard let navigationController = self.navigationController else {
+            debugPrint("no navigation controller available")
+            return false
+        }
+        
+        // First check if any app can handle this URL (including our own app)
+        if UIApplication.shared.canOpenURL(url) {
+            if let scheme = url.scheme {
+                return handleInternalNavigation(url, with: navigationController)
+                
+                handleExternalURL(url)
+                return true
+            }
+        }
+        return false
+    }
+    
+    private func handleInternalNavigation(_ url: URL, with navigationController: UINavigationController) -> Bool {
+        guard let host = url.host else {
+            debugPrint("no host in URL")
+            return false
+        }
+        
+        //               debugPrint("deeplinkScreenMap is ", deeplinkScreenMap)
+        
+        
+        if let viewControllerName = deeplinkScreenMap[host] {
+            let appBundle = Bundle.main
+            
+            // Get the module name (usually your app's name)
+            if let moduleName = appBundle.infoDictionary?["CFBundleName"] as? String,
+               let viewControllerClass = NSClassFromString("\(moduleName).\(viewControllerName)") as? UIViewController.Type {
+                
+                let viewController = viewControllerClass.init()
+                
+                
+                debugPrint("Pushing view controller: \(viewControllerName)")
+                navigationController.pushViewController(viewController, animated: true)
+                return true
+            }
+        }
+        
+        
+        debugPrint("no matching view controller found, handling externally")
+        handleExternalURL(url)
+        return true
+    }
+    
+    private func handleExternalURL(_ url: URL) {
+        debugPrint("opening URL externally: \(url)")
+        UIApplication.shared.open(url, options: [:]) { success in
+            debugPrint(success ? "Successfully opened URL" : "Failed to open URL")
         }
     }
     
     @available(iOS 15.0, *)
     public func webView(_ webView: WKWebView, requestMediaCapturePermissionFor origin: WKSecurityOrigin, initiatedByFrame frame: WKFrameInfo, type: WKMediaCaptureType, decisionHandler: @escaping (WKPermissionDecision) -> Void) {
-        print("Media capture permission requested for type: \(type)")
+        debugPrint("Media capture permission requested for type: \(type)")
         handleMediaPermission(type: type) { granted in
             decisionHandler(granted ? .grant : .deny)
         }
@@ -348,7 +421,7 @@ extension WebViewController {
     // Handle navigation decisions
     //        public func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse, decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
     //            if let url = navigationResponse.response.url, url.absoluteString.contains("location") {
-    //                print("requesting permission")
+    //                debugPrint("requesting permission")
     //               // requestLocationPermission()
     //              //  requestCameraAndMicrophonePermission()
     //            }
