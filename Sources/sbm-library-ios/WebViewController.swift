@@ -217,21 +217,24 @@ extension WebViewController {
                 completion(.redirect(status: status))
             }
             decisionHandler(.cancel) // Stop loading since we're handling it
-            dismissWebView()
+          //  dismissWebView()
+            self.dismiss(animated: true)
             return
         }
         if url.absoluteString.contains("api/user/redirect") {
             let status = url.lastPathComponent
             completion(.redirect(status: status))
             decisionHandler(.cancel) // Stop loading since we're handling it
-            dismissWebView()
+           // dismissWebView()
+            self.dismiss(animated: true)
             return
         }
         
         if urlString.contains("session-expired") {
             completion(.logout)
             decisionHandler(.cancel) // Stop loading
-            dismissWebView()
+           // dismissWebView()
+            self.dismiss(animated: true)
             return
         }
         

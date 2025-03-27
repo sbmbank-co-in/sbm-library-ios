@@ -72,35 +72,35 @@ public class PartnerLibrary {
         return try await NetworkManager.shared.makeRequest(url: URL(string: ServiceNames.LOGIN)!, method: "POST", jsonPayload: ["token": token])
     }
     
-    public func open(on viewController: UIViewController, token: String, module: String, callback: @escaping (WebViewCallback) -> Void) async throws {
-        let checkLoginResponse = try await checkLogin()
-        debugPrint("checkLoginResponse: \(checkLoginResponse)")
-        
-        if checkLoginResponse["type"] as! String == "success" {
-            if checkLoginResponse["is_loggedin"] as! Int == 1 {
-                DispatchQueue.main.async {
-                    // Pass the original view controller directly
-                    let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: viewController)
-                    viewTransitionCoordinator.startProcess(module: module, completion: callback)
+    public func open(token: String, module: String, callback: @escaping (WebViewCallback) -> Void) async throws {
+            let checkLoginResponse = try await checkLogin()
+            print("checkLoginResponse: \(checkLoginResponse)")
+            
+            if checkLoginResponse["type"] as! String == "success" {
+                if checkLoginResponse["is_loggedin"] as! Int == 1 {
+                    DispatchQueue.main.async {
+                        let effectiveVC: UIViewController = self.parentNavigationController ?? self.findTopMostViewController()
+                        let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: effectiveVC)
+                        viewTransitionCoordinator.startProcess(module: module, completion: callback)
+                    }
+                } else {
+                    let loginResponse = try await login(token: token)
+                    print("loginResponse: \(loginResponse)")
+                    DispatchQueue.main.async {
+                        let effectiveVC: UIViewController = self.parentNavigationController ?? self.findTopMostViewController()
+                        let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: effectiveVC)
+                        viewTransitionCoordinator.startProcess(module: module, completion: callback)
+                    }
                 }
             } else {
-                let loginResponse = try await login(token: token)
-                debugPrint("loginResponse: \(loginResponse)")
+                _ = try await login(token: token)
                 DispatchQueue.main.async {
-                    // Pass the original view controller directly
-                    let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: viewController)
+                    let effectiveVC: UIViewController = self.parentNavigationController ?? self.findTopMostViewController()
+                    let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: effectiveVC)
                     viewTransitionCoordinator.startProcess(module: module, completion: callback)
                 }
             }
-        } else {
-            _ = try await login(token: token)
-            DispatchQueue.main.async {
-                // Pass the original view controller directly
-                let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: viewController)
-                viewTransitionCoordinator.startProcess(module: module, completion: callback)
-            }
         }
-    }
     
     private func findTopMostViewController() -> UIViewController {
         guard let window = UIApplication.shared.connectedScenes
