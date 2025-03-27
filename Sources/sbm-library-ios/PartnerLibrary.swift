@@ -24,10 +24,12 @@ public class PartnerLibrary {
     }
     private var deeplinkScreenMap: [String: String] = [:]
     
-    init(hostName: String, deviceBindingEnabled: Bool, whitelistedUrls: Array<String>, navigationBarDisabled: Bool, deeplinkScreenMap:[String: String]) {
+    init(hostName: String, deviceBindingEnabled: Bool, whitelistedUrls: Array<String>, navigationBarDisabled: Bool
+        // , deeplinkScreenMap:[String: String]
+    ) {
         self.hostName = hostName
         self.deviceBindingEnabled = deviceBindingEnabled
-        self.deeplinkScreenMap = deeplinkScreenMap
+       //self.deeplinkScreenMap = deeplinkScreenMap
         EnvManager.hostName = hostName
         EnvManager.deviceBindingEnabled = deviceBindingEnabled
         EnvManager.whitelistedUrls = whitelistedUrls
@@ -72,31 +74,31 @@ public class PartnerLibrary {
         return try await NetworkManager.shared.makeRequest(url: URL(string: ServiceNames.LOGIN)!, method: "POST", jsonPayload: ["token": token])
     }
     
-    public func open(token: String, module: String, callback: @escaping (WebViewCallback) -> Void) async throws {
+    public func open(on viewController: UIViewController, token: String, module: String, callback: @escaping (WebViewCallback) -> Void) async throws {
             let checkLoginResponse = try await checkLogin()
             print("checkLoginResponse: \(checkLoginResponse)")
             
             if checkLoginResponse["type"] as! String == "success" {
                 if checkLoginResponse["is_loggedin"] as! Int == 1 {
                     DispatchQueue.main.async {
-                        let effectiveVC: UIViewController = self.parentNavigationController ?? self.findTopMostViewController()
-                        let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: effectiveVC)
+                        // Pass the original view controller directly
+                        let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: viewController)
                         viewTransitionCoordinator.startProcess(module: module, completion: callback)
                     }
                 } else {
                     let loginResponse = try await login(token: token)
                     print("loginResponse: \(loginResponse)")
                     DispatchQueue.main.async {
-                        let effectiveVC: UIViewController = self.parentNavigationController ?? self.findTopMostViewController()
-                        let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: effectiveVC)
+                        // Pass the original view controller directly
+                        let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: viewController)
                         viewTransitionCoordinator.startProcess(module: module, completion: callback)
                     }
                 }
             } else {
                 _ = try await login(token: token)
                 DispatchQueue.main.async {
-                    let effectiveVC: UIViewController = self.parentNavigationController ?? self.findTopMostViewController()
-                    let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: effectiveVC)
+                    // Pass the original view controller directly
+                    let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: viewController)
                     viewTransitionCoordinator.startProcess(module: module, completion: callback)
                 }
             }
@@ -257,7 +259,7 @@ class ViewTransitionCoordinator {
                 webVC.setCallback { result in
                     completion(result)
                 }
-                webVC.setDeeplinkScreenMap(screenMap)
+               // webVC.setDeeplinkScreenMap(screenMap)
                 webVC.updateAndReload(with: newUrl)
             } else {
                 webVC = WebViewController(urlString: "\(EnvManager.hostName)\(module)") { result in
