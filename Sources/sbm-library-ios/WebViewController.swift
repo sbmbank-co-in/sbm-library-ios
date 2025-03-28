@@ -58,7 +58,7 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
     
     override public func viewDidLoad() {
         super.viewDidLoad()
-        self.restorationIdentifier = "1235"
+        self.view.tag = 1235
         view.backgroundColor = .white
         
 
