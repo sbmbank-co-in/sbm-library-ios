@@ -12,7 +12,7 @@ import UIKit
 import SwiftUI
 import CoreLocation
 
-public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, CLLocationManagerDelegate {
+public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, CLLocationManagerDelegate,UIGestureRecognizerDelegate {
     
     private lazy var webView: WKWebView = {
         let webConfiguration = WKWebViewConfiguration()
@@ -61,9 +61,12 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
         self.restorationIdentifier = "1235"
         view.backgroundColor = .white
         
-        let swipeBack = UISwipeGestureRecognizer(target: self, action: #selector(didSwipe(_:)))
-        swipeBack.direction = .right
-        self.view.addGestureRecognizer(swipeBack)
+
+        
+        let swipeBackGesture = UIScreenEdgePanGestureRecognizer(target: self, action: #selector(handleSwipeBack(_:)))
+                swipeBackGesture.edges = .left
+                swipeBackGesture.delegate = self
+                view.addGestureRecognizer(swipeBackGesture)
         
         view.addSubview(webView)
         webView.translatesAutoresizingMaskIntoConstraints = false
@@ -98,16 +101,17 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
         //        additionalSafeAreaInsets = UIEdgeInsets(top: -view.safeAreaInsets.top, left: 0, bottom: -view.safeAreaInsets.bottom, right: 0)
     }
     
-    @objc func didSwipe(_ gesture: UISwipeGestureRecognizer) {
-        if gesture.direction == .right {
-            handleBackButton()
+    @objc private func handleSwipeBack(_ gesture: UIScreenEdgePanGestureRecognizer) {
+        if gesture.state == .recognized {
+            if webView.canGoBack {
+                webView.goBack()
+            }
         }
     }
-    
-    func handleBackButton() {
-        if webView.canGoBack {
-            webView.goBack()
-        }
+
+    // Implement UIGestureRecognizerDelegate method to allow simultaneous recognition
+    public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        return true
     }
     
     func loadRequestWithCookies(completion: @escaping (Error?) -> Void) {
