@@ -14,6 +14,8 @@ import CoreLocation
 
 public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, CLLocationManagerDelegate,UIGestureRecognizerDelegate {
     
+    public weak var originalViewController: UIViewController?
+    
     private lazy var webView: WKWebView = {
         let webConfiguration = WKWebViewConfiguration()
         webConfiguration.applicationNameForUserAgent = "Version/8.0.2 Safari/600.2.5"
@@ -45,9 +47,10 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
     private var locationManager: CLLocationManager?
     private var locationGranted: Bool = false
     
-    public init(urlString: String?, completion: @escaping (WebViewCallback) -> Void) {
+    public init(urlString: String?,  originalViewController: UIViewController, completion: @escaping (WebViewCallback) -> Void) {
         self.urlString = urlString
         self.completion = completion
+        self.originalViewController = originalViewController
         super.init(nibName: nil, bundle: nil)
         self.locationManager = CLLocationManager()
         self.locationManager?.delegate = self
@@ -389,16 +392,22 @@ extension WebViewController {
     }
     func dismissWebView(animated: Bool = true, completion: (() -> Void)? = nil) {
         if let navigationController = self.navigationController {
-            // Check if this is the last view controller in stack
-            if navigationController.viewControllers.count > 1 {
-                navigationController.popViewController(animated: animated)
+            if let originalVC = originalViewController {
+                debugPrint("pop to view controller")
                 completion?()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    navigationController.popToViewController(originalVC, animated: animated)
+                }
+                
             } else {
-                // If it's the only view controller, dismiss the whole navigation stack
-                navigationController.dismiss(animated: animated, completion: completion)
+                debugPrint("dismissing ")
+                completion?()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    navigationController.popViewController(animated: true)
+                }
             }
+            
         } else {
-            // If there's no navigation controller, just dismiss
             self.dismiss(animated: animated, completion: completion)
         }
     }

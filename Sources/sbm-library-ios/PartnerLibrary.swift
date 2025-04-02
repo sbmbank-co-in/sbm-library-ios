@@ -45,7 +45,8 @@ public class PartnerLibrary {
         // Create a WebViewController with a dummy preload URL or any required initial state.
         // Optionally, you can load a lightweight webpage or use the final URL later.
         let preloadURL = "\(EnvManager.hostName)"
-        let webVC = await WebViewController(urlString: preloadURL) { _ in
+        let tempVC = UIViewController()
+        let webVC = await WebViewController(urlString: preloadURL, originalViewController: tempVC) { _ in
             // This callback can be empty since it’s just preloading.
             debugPrint("here")
         }
@@ -211,8 +212,8 @@ public class PartnerLibrary {
 
 @available(iOS 13.0, *)
 class ViewTransitionCoordinator {
-    private var viewController: UIViewController
-    private var loaderViewController: LoaderViewController?
+    public var viewController: UIViewController
+    public var loaderViewController: LoaderViewController?
     private let library = PartnerLibrarySingleton.shared.instance
     
     init(viewController: UIViewController) {
@@ -277,6 +278,8 @@ class ViewTransitionCoordinator {
             let screenMap = self.library.getDeeplinkScreenMap()
 
             if let preloaded = self.library.preloadedWebVC {
+                preloaded.originalViewController = self.viewController
+
                 webVC = preloaded
                 webVC.setCallback { result in
                     completion(result)
@@ -284,9 +287,12 @@ class ViewTransitionCoordinator {
                // webVC.setDeeplinkScreenMap(screenMap)
                 webVC.updateAndReload(with: newUrl)
             } else {
-                webVC = WebViewController(urlString: "\(EnvManager.hostName)\(module)") { result in
+               webVC = WebViewController(
+                urlString: "\(EnvManager.hostName)\(module)",
+                originalViewController: self.viewController,
+                completion: { result in
                     completion(result)
-                }
+                })
             }
             
             if let navController = self.viewController.navigationController {
