@@ -358,15 +358,6 @@ extension WebViewController {
             completion(false)
         }
     }
-    // Handle navigation decisions
-    //        public func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse, decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
-    //            if let url = navigationResponse.response.url, url.absoluteString.contains("location") {
-    //                print("requesting permission")
-    //               // requestLocationPermission()
-    //              //  requestCameraAndMicrophonePermission()
-    //            }
-    //            decisionHandler(.allow)
-    //        }
     
     
     private func showPermissionAlert(for type: String) {
