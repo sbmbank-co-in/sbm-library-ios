@@ -61,12 +61,12 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
         self.view.tag = 1235
         view.backgroundColor = .white
         
-
+        
         
         let swipeBackGesture = UIScreenEdgePanGestureRecognizer(target: self, action: #selector(handleSwipeBack(_:)))
-                swipeBackGesture.edges = .left
-                swipeBackGesture.delegate = self
-                view.addGestureRecognizer(swipeBackGesture)
+        swipeBackGesture.edges = .left
+        swipeBackGesture.delegate = self
+        view.addGestureRecognizer(swipeBackGesture)
         
         view.addSubview(webView)
         webView.translatesAutoresizingMaskIntoConstraints = false
@@ -108,7 +108,7 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
             }
         }
     }
-
+    
     // Implement UIGestureRecognizerDelegate method to allow simultaneous recognition
     public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
         return true
@@ -207,29 +207,34 @@ extension WebViewController {
         print(urlString)
         
         if urlString.contains("api/user/redirect?status=") {
-                    if let status = url.query?.components(separatedBy: "=").last {
-                        // Call the onRedirect callback and pass the status
-                        completion(.redirect(status: status))
-                    }
-                    decisionHandler(.cancel) // Stop loading since we're handling it
-                    dismissWebView()
-                    //self.dismiss(animated: true)
-                    return
-                }
-        if url.absoluteString.contains("api/user/redirect") {
-            let status = url.lastPathComponent
-            completion(.redirect(status: status))
-            decisionHandler(.cancel) // Stop loading since we're handling it
-             dismissWebView()
+            if let status = url.query?.components(separatedBy: "=").last {
+                // Call the onRedirect callback and pass the status
+                completion(.redirect(status: status))
+            }
+            decisionHandler(.cancel)
+            dismissWebView()
             //self.dismiss(animated: true)
             return
         }
-                
-        if urlString.contains("session-expired") {
-            completion(.logout)
-            decisionHandler(.cancel) // Stop loading
+        
+        
+        
+        if urlString.contains("api/user/session-expired?status=") {
+            if let status = url.query?.components(separatedBy: "=").last {
+                completion(.redirect(status: status))
+            }
+            decisionHandler(.cancel)
             dismissWebView()
-           // self.dismiss(animated: true)
+            //self.dismiss(animated: true)
+            return
+        }
+        
+        if url.absoluteString.contains("api/user/redirect") {
+            let status = url.lastPathComponent
+            completion(.redirect(status: "USER_CLOSED"))
+            decisionHandler(.cancel) // Stop loading since we're handling it
+            dismissWebView()
+            //self.dismiss(animated: true)
             return
         }
         

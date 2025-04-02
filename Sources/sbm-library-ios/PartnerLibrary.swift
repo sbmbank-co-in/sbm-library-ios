@@ -50,8 +50,10 @@ public class PartnerLibrary {
             debugPrint("here")
         }
         // Trigger view loading so that the WebView begins loading content.
+       await clearWebViewCacheAndCookies()
         _ = await webVC.view
         
+
         // Propagate cookies from HTTPCookieStorage to WKWebView's cookie store.
         if let url = URL(string: preloadURL),
            let cookies = HTTPCookieStorage.shared.cookies(for: url),
@@ -73,6 +75,26 @@ public class PartnerLibrary {
     private func login(token: String) async throws -> [String: Any] {
         return try await NetworkManager.shared.makeRequest(url: URL(string: ServiceNames.LOGIN)!, method: "POST", jsonPayload: ["token": token])
     }
+    
+    private func clearWebViewCacheAndCookies() async {
+            // Clear WKWebsiteDataStore
+            
+            debugPrint("Clearing cookies....")
+
+        HTTPCookieStorage.shared.removeCookies(since: Date.distantPast)
+               // print("[WebCacheCleaner] All cookies deleted")
+                
+                WKWebsiteDataStore.default().fetchDataRecords(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes()) { records in
+                    records.forEach { record in
+                        WKWebsiteDataStore.default().removeData(ofTypes: record.dataTypes, for: [record], completionHandler: {})
+                      //  print("[WebCacheCleaner] Record \(record) deleted")
+                    }
+                }
+            
+            debugPrint("Cleared all WebView cache and cookies")
+        }
+
+
     
     public func open(on viewController: UIViewController, token: String, module: String, callback: @escaping (WebViewCallback) -> Void) async throws {
             let checkLoginResponse = try await checkLogin()
