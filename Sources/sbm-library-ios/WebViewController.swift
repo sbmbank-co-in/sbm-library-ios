@@ -400,7 +400,7 @@ extension WebViewController {
                         navigationController.popToViewController(originalVC, animated: animated)
                     }
                 } else {
-                    debugPrint("Original VC not in navigation stack, performing regular pop")
+                    debugPrint("Original VC not in navigation stack")
                 }
             } else {
                 debugPrint("dismissing ")
