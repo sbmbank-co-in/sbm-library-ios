@@ -393,12 +393,15 @@ extension WebViewController {
     func dismissWebView(animated: Bool = true, completion: (() -> Void)? = nil) {
         if let navigationController = self.navigationController {
             if let originalVC = originalViewController {
-                debugPrint("pop to view controller")
-                completion?()
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    navigationController.popToViewController(originalVC, animated: animated)
+                if navigationController.viewControllers.contains(where: { $0 === originalVC }) {
+                    debugPrint("Original VC found in navigation stack, popping to it")
+                    completion?()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        navigationController.popToViewController(originalVC, animated: animated)
+                    }
+                } else {
+                    debugPrint("Original VC not in navigation stack, performing regular pop")
                 }
-                
             } else {
                 debugPrint("dismissing ")
                 completion?()
@@ -406,8 +409,8 @@ extension WebViewController {
                     navigationController.popViewController(animated: true)
                 }
             }
-            
         } else {
+            debugPrint("No navigation controller, dismissing modally")
             self.dismiss(animated: animated, completion: completion)
         }
     }
