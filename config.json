@@ -1,0 +1,203 @@
+
+{
+  "webview": {
+    "settings": {
+      "javaScriptEnabled": true,
+      "javaScriptCanOpenWindowsAutomatically": true,
+      "allowsInlineMediaPlayback": true,
+      "mediaPlaybackRequiresUserGesture": false,
+      "allowFileAccess": true,
+      "allowsContentJavaScript": true,
+      "scrollEnabled": true,
+      "applicationNameForUserAgent": "_Partner_Android",
+      "databaseEnabled": true,
+      "domStorageEnabled": true,
+      "geoLocationEnabled": true,
+      "mixedContentMode": "MIXED_CONTENT_ALWAYS_ALLOW",
+      "javaScriptCanOpenWindowsAutomatically": true,
+      "cacheMode": "LOAD_DEFAULT",
+      
+
+    },
+    
+    "urlHandling": {
+      "redirectPaths": [
+        "api/user/redirect?status=",
+        "api/user/session-expired?status="
+      ],
+      "protocolHandling": {
+        "defaultProtocol": "https://",
+        "externalProtocols": [
+          "whatsapp:",
+          "maps:"
+        ]
+      }
+    }
+  }
+}
+
+
+
+
+
+
+{
+  "webview": {
+    "settings": {
+      "javaScriptEnabled": true,
+      "javaScriptCanOpenWindowsAutomatically": true,
+      "allowsInlineMediaPlayback": true,
+      "mediaPlaybackRequiresUserAction": false,
+      "allowFileAccessFromFileURLs": true,
+      "allowsContentJavaScript": true,
+      "scrollEnabled": true,
+      "maximumZoomScale": 1.0,
+      "applicationNameForUserAgent": "Version/8.0.2 Safari/600.2.5",
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1",
+
+    },
+    
+    "urlHandling": {
+      "delayBeforeExternalLaunch": 0.2,
+      "redirectPaths": [
+        "api/user/redirect?status=",
+        "api/user/session-expired?status="
+      ],
+      "protocolHandling": {
+        "defaultProtocol": "https://",
+        "externalProtocols": [
+          "tel:",
+          "mailto:",
+          "whatsapp:",
+          "maps:"
+        ]
+      }
+    },
+    "navigation": {
+      "swipeBackEnabled": true,
+      "swipeEdge": "left",
+      "dismissDelay": 0.1
+    },
+    "layout": {
+      "safeArea": {
+        "enabled": true,
+        "constraintsActive": true
+      },
+    }
+  }
+}
+
+
+
+
+{
+    "type": "success",
+    "data": {
+        "value": "AVAILABLE",
+        "info":{
+            "webview": {
+              "settings": {
+                "javaScriptEnabled": true,
+                "javaScriptCanOpenWindowsAutomatically": true,
+                "allowsInlineMediaPlayback": true,
+                "mediaPlaybackRequiresUserAction": false,
+                "allowFileAccessFromFileURLs": true,
+                "allowsContentJavaScript": true,
+                "scrollEnabled": true,
+                "maximumZoomScale": 1.0,
+                "applicationNameForUserAgent": "Version/8.0.2 Safari/600.2.5",
+                "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1",
+
+              },
+              
+              "urlHandling": {
+                "delayBeforeExternalLaunch": 0.2,
+                "redirectPaths": [
+                  "api/user/redirect?status=",
+                  "api/user/session-expired?status="
+                ],
+                "protocolHandling": {
+                  "defaultProtocol": "https://",
+                  "externalProtocols": [
+                    "tel:",
+                    "mailto:",
+                    "whatsapp:",
+                    "maps:"
+                  ]
+                }
+              },
+              "navigation": {
+                "swipeBackEnabled": true,
+                "swipeEdge": "left",
+                "dismissDelay": 0.1
+              },
+              "layout": {
+                "safeArea": {
+                  "enabled": true,
+                  "constraintsActive": true
+                },
+              }
+            }
+          }
+    }
+}
+
+//android
+
+{
+    "type": "success",
+    "data": {
+        "value": "AVAILABLE",
+        "info":{
+            {
+                "webview": {
+                    "settings": {
+                        "javaScriptEnabled": true,
+                        "databaseEnabled": true,
+                        "domStorageEnabled": true,
+                        "allowFileAccess": true,
+                        "geolocationEnabled": true,
+                        "renderPriority": "HIGH",
+                        "mixedContentMode": "MIXED_CONTENT_ALWAYS_ALLOW",
+                        "javaScriptCanOpenWindowsAutomatically": true,
+                        "mediaPlaybackRequiresUserGesture": false,
+                        "cacheMode": "LOAD_DEFAULT",
+                        "layerType": "HARDWARE",
+                        "userAgent": {
+                            "append": "_Partner_Android"
+                        }
+                    },
+                    "urlHandling": {
+                        "allowDirectLoadingPatterns": [
+                            ".pdf",
+                            "/statements/",
+                            "/download_statements"
+                        ],
+                        "redirectPatterns": [
+                            {
+                                "pattern": "/redirect?status=",
+                                "action": "EXIT_WITH_STATUS"
+                            },
+                            {
+                                "pattern": "session-expired",
+                                "action": "LOGOUT"
+                            }
+                        ],
+                        "externalAppPatterns": [
+                            {
+                                "pattern": "api.whatsapp.com",
+                                "action": "OPEN_WHATSAPP"
+                            }
+                        ]
+                    },
+                    "downloads": {
+                        "enabled": true,
+                        "requireStoragePermission": true,
+                        "destination": "DIRECTORY_DOWNLOADS",
+                        "autoOpenAfterDownload": true
+                    }
+                }
+            }
+        }
+    }
+}

@@ -11,35 +11,40 @@ import AVFoundation
 import UIKit
 import SwiftUI
 import CoreLocation
-
 public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, CLLocationManagerDelegate,UIGestureRecognizerDelegate {
     
     public weak var originalViewController: UIViewController?
+    private var config: [String: Any]?
+
     
     private lazy var webView: WKWebView = {
         let webConfiguration = WKWebViewConfiguration()
-        webConfiguration.applicationNameForUserAgent = "Version/8.0.2 Safari/600.2.5"
+        let webViewConfig = config?["webview"] as? [String: Any] ?? [:]
+        let settings = webViewConfig["settings"] as? [String: Any] ?? [:]
+
+        webConfiguration.applicationNameForUserAgent = settings["applicationNameForUserAgent"] as? String ?? "Version/8.0.2 Safari/600.2.5"
         let userContentController = WKUserContentController()
         userContentController.add(self, name: "iosListener")
         webConfiguration.userContentController = userContentController
         webConfiguration.websiteDataStore = WKWebsiteDataStore.default()
-        webConfiguration.preferences.javaScriptEnabled = true
-        webConfiguration.preferences.javaScriptCanOpenWindowsAutomatically = true
-        webConfiguration.allowsInlineMediaPlayback = true
+        webConfiguration.preferences.javaScriptEnabled = settings["javaScriptEnabled"] as? Bool ?? true
+        webConfiguration.preferences.javaScriptCanOpenWindowsAutomatically = settings["javaScriptCanOpenWindowsAutomatically"] as? Bool ?? true
+        webConfiguration.allowsInlineMediaPlayback = settings["allowsInlineMediaPlayback"] as? Bool ?? true
         webConfiguration.mediaTypesRequiringUserActionForPlayback = []
         if #available(iOS 15.0, *) {
-            webConfiguration.mediaPlaybackRequiresUserAction = false
+            webConfiguration.mediaPlaybackRequiresUserAction = settings["mediaPlaybackRequiresUserAction"] as? Bool ?? false
         }
-        webConfiguration.preferences.setValue(true, forKey: "allowFileAccessFromFileURLs")
+        webConfiguration.preferences.setValue(settings["allowFileAccessFromFileURLs"] as? Bool ?? true,
+                                           forKey: "allowFileAccessFromFileURLs")
         if #available(iOS 14.0, *) {
             webConfiguration.defaultWebpagePreferences.allowsContentJavaScript = true
         }
         let webView = WKWebView(frame: .zero, configuration: webConfiguration)
         webView.navigationDelegate = self
         webView.uiDelegate = self
-        webView.scrollView.isScrollEnabled = true
-        webView.scrollView.maximumZoomScale = 1.0
-        webView.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1"
+        webView.scrollView.isScrollEnabled = settings["scrollEnabled"] as? Bool ?? true
+        webView.scrollView.maximumZoomScale = settings["maximumZoomScale"] as? CGFloat ?? 1.0
+        webView.customUserAgent = settings["customUserAgent"] as? String ?? ""
         return webView
     }()
     var urlString: String?
@@ -47,13 +52,16 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
     private var locationManager: CLLocationManager?
     private var locationGranted: Bool = false
     
-    public init(urlString: String?,  originalViewController: UIViewController, completion: @escaping (WebViewCallback) -> Void) {
+    public init(urlString: String?,  originalViewController: UIViewController, completion: @escaping (WebViewCallback) -> Void, config: [String: Any]? = nil
+) {
         self.urlString = urlString
         self.completion = completion
         self.originalViewController = originalViewController
         super.init(nibName: nil, bundle: nil)
         self.locationManager = CLLocationManager()
         self.locationManager?.delegate = self
+        self.config = config
+
     }
     
     required init?(coder aDecoder: NSCoder) {
@@ -207,30 +215,20 @@ extension WebViewController {
         
         // Convert your logic to Swift
         let urlString = url.absoluteString
+        let webViewUrlHandling = config?["webview"] as? [String: Any]
+        let urlConfig = config?["urlHandling"] as? [String: Any]
+
+        let redirectPaths = urlConfig?["redirectPaths"] as? [String] ?? []
         
-        print(urlString)
-        
-        if urlString.contains("api/user/redirect?status=") {
-            if let status = url.query?.components(separatedBy: "=").last {
-                // Call the onRedirect callback and pass the status
-                completion(.redirect(status: status))
+        for path in redirectPaths {
+            if urlString.contains(path) {
+                if let status = url.query?.components(separatedBy: "=").last {
+                    completion(.redirect(status: status))
+                }
+                decisionHandler(.cancel)
+                dismissWebView()
+                return
             }
-            decisionHandler(.cancel)
-            dismissWebView()
-            //self.dismiss(animated: true)
-            return
-        }
-        
-        
-        
-        if urlString.contains("api/user/session-expired?status=") {
-            if let status = url.query?.components(separatedBy: "=").last {
-                completion(.redirect(status: status))
-            }
-            decisionHandler(.cancel)
-            dismissWebView()
-            //self.dismiss(animated: true)
-            return
         }
         
         if url.absoluteString.contains("api/user/redirect") {

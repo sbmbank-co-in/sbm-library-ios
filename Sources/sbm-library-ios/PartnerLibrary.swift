@@ -23,7 +23,6 @@ public class PartnerLibrary {
         self.parentNavigationController = navController
     }
     private var deeplinkScreenMap: [String: String] = [:]
-    
     init(hostName: String, deviceBindingEnabled: Bool, whitelistedUrls: Array<String>, navigationBarDisabled: Bool
         // , deeplinkScreenMap:[String: String]
     ) {
@@ -41,32 +40,77 @@ public class PartnerLibrary {
     }
     public func getDeeplinkScreenMap() -> [String: String]{ return deeplinkScreenMap}
     
-    private func preloadWebView() async {
-        // Create a WebViewController with a dummy preload URL or any required initial state.
-        // Optionally, you can load a lightweight webpage or use the final URL later.
-        let preloadURL = "\(EnvManager.hostName)"
-        let tempVC = UIViewController()
-        let webVC = await WebViewController(urlString: preloadURL, originalViewController: tempVC) { _ in
-            // This callback can be empty since it’s just preloading.
-            debugPrint("here")
-        }
-        // Trigger view loading so that the WebView begins loading content.
-       await clearWebViewCacheAndCookies()
-        _ = await webVC.view
-        
+   
 
-        // Propagate cookies from HTTPCookieStorage to WKWebView's cookie store.
-        if let url = URL(string: preloadURL),
-           let cookies = HTTPCookieStorage.shared.cookies(for: url),
-           let wkWebView = webVC as? WKWebView
-        {
-            let cookieStore: WKHTTPCookieStore = await wkWebView.configuration.websiteDataStore.httpCookieStore
-            for cookie in cookies {
-                await cookieStore.setCookie(cookie, completionHandler: nil)
-            }
+    public func getSDKConfig() async -> [String: Any] {
+        do {
+            print("webview config fn called")
+            return try await NetworkManager.shared.makeRequest(url: URL(string: ServiceNames.IOS_SDK_CONFIG)!, method: "GET")
+        } catch {
+            debugPrint("Failed to fetch SDK config: \(error)")
+            return [:]
         }
-        
-        self.preloadedWebVC = webVC
+    }
+
+     func extractWebViewConfig(from response: [String: Any]) -> [String: Any]? {
+        guard let type = response["type"] as? String, type == "success",
+              let data = response["data"] as? [String: Any],
+              let info = data["info"] as? [String: Any] else {
+            return nil
+        }
+        return info
+    }
+
+    private func preloadWebView() async {
+        do {
+            // Fetch SDK config first
+            let sdkConfigResponse = try await getSDKConfig()
+            let webViewConfig: [String: Any] = extractWebViewConfig(from: sdkConfigResponse) ?? [:]
+
+            
+            let preloadURL = "\(EnvManager.hostName)"
+            let tempVC = UIViewController()
+            let webVC = await WebViewController(
+                urlString: preloadURL,
+                originalViewController: tempVC,
+                completion: { _ in
+                    debugPrint("here")
+                },
+                config: webViewConfig
+            )
+            
+            await clearWebViewCacheAndCookies()
+            _ = await webVC.view
+            
+            if let url = URL(string: preloadURL),
+               let cookies = HTTPCookieStorage.shared.cookies(for: url),
+               let wkWebView = webVC as? WKWebView
+            {
+                let cookieStore: WKHTTPCookieStore = await wkWebView.configuration.websiteDataStore.httpCookieStore
+                for cookie in cookies {
+                    await cookieStore.setCookie(cookie, completionHandler: nil)
+                }
+            }
+            
+            self.preloadedWebVC = webVC
+        } catch {
+            debugPrint("Failed to load SDK config: \(error)")
+            // Fallback to loading without config
+            let preloadURL = "\(EnvManager.hostName)"
+            let tempVC = UIViewController()
+            let webVC = await WebViewController(
+                urlString: preloadURL,
+                originalViewController: tempVC,
+                completion: { _ in debugPrint("here")
+                },
+//                config: webViewConfig
+            )
+            
+            await clearWebViewCacheAndCookies()
+            _ = await webVC.view
+            
+            self.preloadedWebVC = webVC
+        }
     }
     
     private func checkLogin() async throws -> [String: Any] {
@@ -232,7 +276,7 @@ class ViewTransitionCoordinator {
             
             self.dismissLoaderView()
             
-            self.openLibrary(module: module) { callback in
+            await  self.openLibrary(module: module) { callback in
                 //                self.dismissLoaderView()
                 completion(callback)
             }
@@ -271,7 +315,10 @@ class ViewTransitionCoordinator {
         }
     }
     
-    private func openLibrary(module: String, completion: @escaping (WebViewCallback) -> Void) {
+    private func openLibrary(module: String, completion: @escaping (WebViewCallback) -> Void) async {
+        
+        let sdkConfigResponse =  await library.getSDKConfig()
+        let webViewConfig = library.extractWebViewConfig(from: sdkConfigResponse)
         DispatchQueue.main.async {
             let webVC: WebViewController
             let newUrl = "\(EnvManager.hostName)\(module)"
@@ -292,7 +339,11 @@ class ViewTransitionCoordinator {
                 originalViewController: self.viewController,
                 completion: { result in
                     completion(result)
-                })
+                },
+                config: webViewConfig
+
+               )
+                
             }
             
             if let navController = self.viewController.navigationController {
