@@ -210,6 +210,14 @@ extension WebViewController {
         
         print(urlString)
         
+        if urlString.contains(".pdf") ||
+            urlString.lowercased().contains("/pdf") ||
+            urlString.contains("/download") ||
+            urlString.contains("/statements") {
+            handleFileDownload(url: url, decisionHandler: decisionHandler)
+            return
+        }
+        
         if urlString.contains("api/user/redirect?status=") {
             if let status = url.query?.components(separatedBy: "=").last {
                 // Call the onRedirect callback and pass the status
@@ -414,6 +422,47 @@ extension WebViewController {
             self.dismiss(animated: animated, completion: completion)
         }
     }
+    private func handleFileDownload(url: URL, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        
+        let session = URLSession.shared
+        let task = session.downloadTask(with: url) { (tempLocalUrl, response, error) in
+            if let tempLocalUrl = tempLocalUrl, error == nil {
+                // Generate a unique file name in the cache directory
+                if let cachesDirectory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first {
+                    let fileName = response?.suggestedFilename ?? url.lastPathComponent
+                    let destinationUrl = cachesDirectory.appendingPathComponent(fileName)
+                    
+                    do {
+                        // Remove existing file if it exists
+                        if FileManager.default.fileExists(atPath: destinationUrl.path) {
+                            try FileManager.default.removeItem(at: destinationUrl)
+                        }
+                        
+                        // Copy downloaded file to destination
+                        try FileManager.default.copyItem(at: tempLocalUrl, to: destinationUrl)
+                        
+                        DispatchQueue.main.async {
+                            // Open the file using system default handler
+                            let documentController = UIDocumentInteractionController(url: destinationUrl)
+                            documentController.delegate = self
+                            documentController.presentPreview(animated: true)
+                        }
+                    } catch {
+                        print("Error handling file: \(error)")
+                    }
+                }
+            }
+        }
+        task.resume()
+        decisionHandler(.cancel)
+    }
+    
+    
     
 }
 
+extension WebViewController: UIDocumentInteractionControllerDelegate {
+    public func documentInteractionControllerViewControllerForPreview(_ controller: UIDocumentInteractionController) -> UIViewController {
+        return self
+    }
+}
