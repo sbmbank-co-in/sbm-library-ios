@@ -44,7 +44,7 @@ public class PartnerLibrary {
     private func preloadWebView() async {
         // Create a WebViewController with a dummy preload URL or any required initial state.
         // Optionally, you can load a lightweight webpage or use the final URL later.
-        let preloadURL = "\(EnvManager.hostName)"
+        let preloadURL = "\(EnvManager.hostName)/init"
         let tempVC = UIViewController()
         let webVC = await WebViewController(urlString: preloadURL, originalViewController: tempVC) { _ in
             // This callback can be empty since it’s just preloading.
