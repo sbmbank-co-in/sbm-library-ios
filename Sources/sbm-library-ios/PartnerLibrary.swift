@@ -34,10 +34,10 @@ public class PartnerLibrary {
         EnvManager.deviceBindingEnabled = deviceBindingEnabled
         EnvManager.whitelistedUrls = whitelistedUrls
         EnvManager.navigationBarDisabled = navigationBarDisabled
-//        
-//        Task {
-//            await preloadWebView()
-//        }
+        //
+        Task {
+            await preloadWebView()
+        }
     }
     public func getDeeplinkScreenMap() -> [String: String]{ return deeplinkScreenMap}
     
@@ -52,17 +52,16 @@ public class PartnerLibrary {
         }
         // Trigger view loading so that the WebView begins loading content.
         await clearWebViewCacheAndCookies()
-        _ = await webVC.view
+        //        _ = await webVC.view
         
         
         // Propagate cookies from HTTPCookieStorage to WKWebView's cookie store.
-        if let url = URL(string: preloadURL),
-           let cookies = HTTPCookieStorage.shared.cookies(for: url),
-           let wkWebView = webVC as? WKWebView
-        {
-            let cookieStore: WKHTTPCookieStore = await wkWebView.configuration.websiteDataStore.httpCookieStore
+        if let url = URL(string: preloadURL) {
+            let cookies = HTTPCookieStorage.shared.cookies(for: url) ?? []
+            // use the new accessor instead of casting
+            let store = await webVC.cookieStore
             for cookie in cookies {
-                await cookieStore.setCookie(cookie, completionHandler: nil)
+                await store.setCookie(cookie, completionHandler: nil)
             }
         }
         
@@ -82,7 +81,7 @@ public class PartnerLibrary {
         
         debugPrint("Clearing cookies....")
         
-        //        HTTPCookieStorage.shared.removeCookies(since: Date.distantPast)
+//        HTTPCookieStorage.shared.removeCookies(since: Date.distantPast)
         // print("[WebCacheCleaner] All cookies deleted")
         
         WKWebsiteDataStore.default().fetchDataRecords(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes()) { records in
@@ -98,33 +97,33 @@ public class PartnerLibrary {
     
     
     public func open(on viewController: UIViewController, token: String, module: String, callback: @escaping (WebViewCallback) -> Void) async throws {
-        let checkLoginResponse = try await checkLogin()
-        print("checkLoginResponse: \(checkLoginResponse)")
-        
-        if checkLoginResponse["type"] as! String == "success" {
-            if checkLoginResponse["is_loggedin"] as! Int == 1 {
-                DispatchQueue.main.async {
-                    // Pass the original view controller directly
-                    let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: viewController)
-                    viewTransitionCoordinator.startProcess(module: module, completion: callback)
-                }
-            } else {
-                let loginResponse = try await login(token: token)
-                print("loginResponse: \(loginResponse)")
-                DispatchQueue.main.async {
-                    // Pass the original view controller directly
-                    let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: viewController)
-                    viewTransitionCoordinator.startProcess(module: module, completion: callback)
-                }
-            }
-        } else {
-            _ = try await login(token: token)
-            DispatchQueue.main.async {
-                // Pass the original view controller directly
-                let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: viewController)
-                viewTransitionCoordinator.startProcess(module: module, completion: callback)
-            }
+        //        let checkLoginResponse = try await checkLogin()
+        //        print("checkLoginResponse: \(checkLoginResponse)")
+        //
+        //        if checkLoginResponse["type"] as! String == "success" {
+        //            if checkLoginResponse["is_loggedin"] as! Int == 1 {
+        //                DispatchQueue.main.async {
+        //                    // Pass the original view controller directly
+        //                    let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: viewController)
+        //                    viewTransitionCoordinator.startProcess(module: module, completion: callback)
+        //                }
+        //            } else {
+        let loginResponse = try await login(token: token)
+        print("loginResponse: \(loginResponse)")
+        DispatchQueue.main.async {
+            // Pass the original view controller directly
+            let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: viewController)
+            viewTransitionCoordinator.startProcess(module: module, completion: callback)
         }
+        //            }
+        //        } else {
+        //            _ = try await login(token: token)
+        //            DispatchQueue.main.async {
+        //                // Pass the original view controller directly
+        //                let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: viewController)
+        //                viewTransitionCoordinator.startProcess(module: module, completion: callback)
+        //            }
+        //        }
     }
     
     private func findTopMostViewController() -> UIViewController {

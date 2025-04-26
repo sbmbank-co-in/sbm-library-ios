@@ -85,8 +85,7 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
         
         
         if let cookies = HTTPCookieStorage.shared.cookies {
-            for _ in cookies {
-                
+            for cookie in cookies {
             }
         }
         
@@ -98,6 +97,10 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
                 print("Error loading webView: \(error)")
             }
         })
+    }
+    
+    public var cookieStore: WKHTTPCookieStore {
+        return webView.configuration.websiteDataStore.httpCookieStore
     }
     
     override public func viewDidLayoutSubviews() {
@@ -120,7 +123,7 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
     
     func loadRequestWithCookies(completion: @escaping (Error?) -> Void) {
         let cookies = HTTPCookieStorage.shared.cookies ?? []
-        let cookieStore = webView.configuration.websiteDataStore.httpCookieStore
+        let cookieStore = cookieStore
         
         let dispatchGroup = DispatchGroup()
         
