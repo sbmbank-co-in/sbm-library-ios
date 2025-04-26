@@ -25,11 +25,11 @@ public class PartnerLibrary {
     private var deeplinkScreenMap: [String: String] = [:]
     
     init(hostName: String, deviceBindingEnabled: Bool, whitelistedUrls: Array<String>, navigationBarDisabled: Bool
-        // , deeplinkScreenMap:[String: String]
+         // , deeplinkScreenMap:[String: String]
     ) {
         self.hostName = hostName
         self.deviceBindingEnabled = deviceBindingEnabled
-       //self.deeplinkScreenMap = deeplinkScreenMap
+        //self.deeplinkScreenMap = deeplinkScreenMap
         EnvManager.hostName = hostName
         EnvManager.deviceBindingEnabled = deviceBindingEnabled
         EnvManager.whitelistedUrls = whitelistedUrls
@@ -51,10 +51,10 @@ public class PartnerLibrary {
             debugPrint("here")
         }
         // Trigger view loading so that the WebView begins loading content.
-       await clearWebViewCacheAndCookies()
+        await clearWebViewCacheAndCookies()
         _ = await webVC.view
         
-
+        
         // Propagate cookies from HTTPCookieStorage to WKWebView's cookie store.
         if let url = URL(string: preloadURL),
            let cookies = HTTPCookieStorage.shared.cookies(for: url),
@@ -78,54 +78,54 @@ public class PartnerLibrary {
     }
     
     private func clearWebViewCacheAndCookies() async {
-            // Clear WKWebsiteDataStore
-            
-            debugPrint("Clearing cookies....")
-
-        HTTPCookieStorage.shared.removeCookies(since: Date.distantPast)
-               // print("[WebCacheCleaner] All cookies deleted")
-                
-                WKWebsiteDataStore.default().fetchDataRecords(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes()) { records in
-                    records.forEach { record in
-                        WKWebsiteDataStore.default().removeData(ofTypes: record.dataTypes, for: [record], completionHandler: {})
-                      //  print("[WebCacheCleaner] Record \(record) deleted")
-                    }
-                }
-            
-            debugPrint("Cleared all WebView cache and cookies")
+        // Clear WKWebsiteDataStore
+        
+        debugPrint("Clearing cookies....")
+        
+        //        HTTPCookieStorage.shared.removeCookies(since: Date.distantPast)
+        // print("[WebCacheCleaner] All cookies deleted")
+        
+        WKWebsiteDataStore.default().fetchDataRecords(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes()) { records in
+            records.forEach { record in
+                WKWebsiteDataStore.default().removeData(ofTypes: record.dataTypes, for: [record], completionHandler: {})
+                //  print("[WebCacheCleaner] Record \(record) deleted")
+            }
         }
-
-
+        
+        debugPrint("Cleared all WebView cache and cookies")
+    }
+    
+    
     
     public func open(on viewController: UIViewController, token: String, module: String, callback: @escaping (WebViewCallback) -> Void) async throws {
-            let checkLoginResponse = try await checkLogin()
-            print("checkLoginResponse: \(checkLoginResponse)")
-            
-            if checkLoginResponse["type"] as! String == "success" {
-                if checkLoginResponse["is_loggedin"] as! Int == 1 {
-                    DispatchQueue.main.async {
-                        // Pass the original view controller directly
-                        let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: viewController)
-                        viewTransitionCoordinator.startProcess(module: module, completion: callback)
-                    }
-                } else {
-                    let loginResponse = try await login(token: token)
-                    print("loginResponse: \(loginResponse)")
-                    DispatchQueue.main.async {
-                        // Pass the original view controller directly
-                        let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: viewController)
-                        viewTransitionCoordinator.startProcess(module: module, completion: callback)
-                    }
+        let checkLoginResponse = try await checkLogin()
+        print("checkLoginResponse: \(checkLoginResponse)")
+        
+        if checkLoginResponse["type"] as! String == "success" {
+            if checkLoginResponse["is_loggedin"] as! Int == 1 {
+                DispatchQueue.main.async {
+                    // Pass the original view controller directly
+                    let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: viewController)
+                    viewTransitionCoordinator.startProcess(module: module, completion: callback)
                 }
             } else {
-                _ = try await login(token: token)
+                let loginResponse = try await login(token: token)
+                print("loginResponse: \(loginResponse)")
                 DispatchQueue.main.async {
                     // Pass the original view controller directly
                     let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: viewController)
                     viewTransitionCoordinator.startProcess(module: module, completion: callback)
                 }
             }
+        } else {
+            _ = try await login(token: token)
+            DispatchQueue.main.async {
+                // Pass the original view controller directly
+                let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: viewController)
+                viewTransitionCoordinator.startProcess(module: module, completion: callback)
+            }
         }
+    }
     
     private func findTopMostViewController() -> UIViewController {
         guard let window = UIApplication.shared.connectedScenes
@@ -276,23 +276,23 @@ class ViewTransitionCoordinator {
             let webVC: WebViewController
             let newUrl = "\(EnvManager.hostName)\(module)"
             let screenMap = self.library.getDeeplinkScreenMap()
-
+            
             if let preloaded = self.library.preloadedWebVC {
                 preloaded.originalViewController = self.viewController
-
+                
                 webVC = preloaded
                 webVC.setCallback { result in
                     completion(result)
                 }
-               // webVC.setDeeplinkScreenMap(screenMap)
+                // webVC.setDeeplinkScreenMap(screenMap)
                 webVC.updateAndReload(with: newUrl)
             } else {
-               webVC = WebViewController(
-                urlString: "\(EnvManager.hostName)\(module)",
-                originalViewController: self.viewController,
-                completion: { result in
-                    completion(result)
-                })
+                webVC = WebViewController(
+                    urlString: "\(EnvManager.hostName)\(module)",
+                    originalViewController: self.viewController,
+                    completion: { result in
+                        completion(result)
+                    })
             }
             
             if let navController = self.viewController.navigationController {
