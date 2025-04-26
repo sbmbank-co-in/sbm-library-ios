@@ -34,10 +34,10 @@ public class PartnerLibrary {
         EnvManager.deviceBindingEnabled = deviceBindingEnabled
         EnvManager.whitelistedUrls = whitelistedUrls
         EnvManager.navigationBarDisabled = navigationBarDisabled
-        
-        Task {
-            await preloadWebView()
-        }
+//        
+//        Task {
+//            await preloadWebView()
+//        }
     }
     public func getDeeplinkScreenMap() -> [String: String]{ return deeplinkScreenMap}
     
