@@ -5,18 +5,20 @@
 //  Created by Varun on 30/10/23.
 //
 
-import Foundation
-@preconcurrency import WebKit
 import AVFoundation
-import UIKit
-import SwiftUI
 import CoreLocation
+import Foundation
+import SwiftUI
+import UIKit
+@preconcurrency import WebKit
 
 @available(iOS 13.0, *)
-public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, CLLocationManagerDelegate,UIGestureRecognizerDelegate {
-    
+public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDelegate,
+    CLLocationManagerDelegate, UIGestureRecognizerDelegate
+{
+
     public weak var originalViewController: UIViewController?
-    
+
     private lazy var webView: WKWebView = {
         let webConfiguration = WKWebViewConfiguration()
         webConfiguration.applicationNameForUserAgent = "Version/8.0.2 Safari/600.2.5"
@@ -40,15 +42,19 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
         webView.uiDelegate = self
         webView.scrollView.isScrollEnabled = true
         webView.scrollView.maximumZoomScale = 1.0
-        webView.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1"
+        webView.customUserAgent =
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1"
         return webView
     }()
     var urlString: String?
     var completion: (WebViewCallback) -> Void
     private var locationManager: CLLocationManager?
     private var locationGranted: Bool = false
-    
-    public init(urlString: String?,  originalViewController: UIViewController, completion: @escaping (WebViewCallback) -> Void) {
+
+    public init(
+        urlString: String?, originalViewController: UIViewController,
+        completion: @escaping (WebViewCallback) -> Void
+    ) {
         self.urlString = urlString
         self.completion = completion
         self.originalViewController = originalViewController
@@ -56,59 +62,56 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
         self.locationManager = CLLocationManager()
         self.locationManager?.delegate = self
     }
-    
+
     required init?(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
+
     override public func viewDidLoad() {
         super.viewDidLoad()
         self.view.tag = 1235
         view.backgroundColor = .white
-        
-        
-        
-        let swipeBackGesture = UIScreenEdgePanGestureRecognizer(target: self, action: #selector(handleSwipeBack(_:)))
+
+        let swipeBackGesture = UIScreenEdgePanGestureRecognizer(
+            target: self, action: #selector(handleSwipeBack(_:)))
         swipeBackGesture.edges = .left
         swipeBackGesture.delegate = self
         view.addGestureRecognizer(swipeBackGesture)
-        
+
         view.addSubview(webView)
         webView.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             webView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             webView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
             webView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
-            webView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor)
+            webView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
         ])
         //        webView.frame = view.bounds
-        
-        
-        
+
         if let cookies = HTTPCookieStorage.shared.cookies {
             for cookie in cookies {
             }
         }
-        
+
         //        webView.configuration.preferences.setValue(true, forKey: "allowFileAccessFromFileURLs")
         //        webView.configuration.mediaTypesRequiringUserActionForPlayback = []
-        
+
         loadRequestWithCookies(completion: { error in
             if let error = error {
                 print("Error loading webView: \(error)")
             }
         })
     }
-    
+
     public var cookieStore: WKHTTPCookieStore {
         return webView.configuration.websiteDataStore.httpCookieStore
     }
-    
+
     override public func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         //        additionalSafeAreaInsets = UIEdgeInsets(top: -view.safeAreaInsets.top, left: 0, bottom: -view.safeAreaInsets.bottom, right: 0)
     }
-    
+
     @objc private func handleSwipeBack(_ gesture: UIScreenEdgePanGestureRecognizer) {
         if gesture.state == .recognized {
             if webView.canGoBack {
@@ -116,31 +119,34 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
             }
         }
     }
-    
+
     // Implement UIGestureRecognizerDelegate method to allow simultaneous recognition
-    public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+    public func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer,
+        shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
         return true
     }
-    
+
     func loadRequestWithCookies(completion: @escaping (Error?) -> Void) {
         let cookies = HTTPCookieStorage.shared.cookies ?? []
         let cookieStore = cookieStore
-        
+
         let dispatchGroup = DispatchGroup()
-        
+
         for cookie in cookies {
             dispatchGroup.enter()
             cookieStore.setCookie(cookie) {
                 dispatchGroup.leave()
             }
         }
-        
+
         dispatchGroup.notify(queue: DispatchQueue.main) {
             do {
                 guard let urlString = self.urlString, let url = URL(string: urlString) else {
                     throw InvalidURLError.invalidURL
                 }
-                
+
                 let request = URLRequest(url: url)
                 self.webView.load(request)
                 completion(nil)
@@ -149,7 +155,7 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
             }
         }
     }
-    
+
     public func updateAndReload(with urlString: String) {
         self.urlString = urlString
         loadRequestWithCookies { error in
@@ -158,41 +164,50 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
             }
         }
     }
-    
+
     public func setCallback(_ callback: @escaping (WebViewCallback) -> Void) {
         self.completion = callback
     }
-    
-    public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+
+    public func webView(
+        _ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error
+    ) {
         print("WebView navigation failed: \(error)")
     }
-    
-    public func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
+
+    public func webView(
+        _ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
+        for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures
+    ) -> WKWebView? {
         if navigationAction.targetFrame == nil {
             webView.load(navigationAction.request)
         }
         return nil
     }
-    
-    public func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
-        
+
+    public func webView(
+        _ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!
+    ) {
+
     }
-    
+
     private func openURLExternally(_ url: URL, completion: @escaping () -> Void) {
         UIApplication.shared.open(url, options: [:]) { _ in
             completion()
         }
     }
-    
+
     enum InvalidURLError: Error {
         case invalidURL
     }
-    
+
 }
 
 @available(iOS 13.0, *)
 extension WebViewController: WKScriptMessageHandler {
-    public func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+    public func userContentController(
+        _ userContentController: WKUserContentController, didReceive message: WKScriptMessage
+    ) {
         if message.name == "spense_library" {
             if let messageBody = message.body as? String {
                 print("Received message from web: \(messageBody)")
@@ -207,41 +222,43 @@ extension WebViewController {
     public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         if let url = webView.url?.absoluteString {
             AnalyticsLogger.logEvent([
-                "event": "WEBVIEW_LOADED",
-                "url": url
+                "event": "IOS_WEBVIEW_LOADED",
+                "url": url,
             ])
         }
     }
 }
 @available(iOS 13.0, *)
 extension WebViewController {
-    public func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        
+    public func webView(
+        _ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
+        decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+    ) {
+
         guard let url = navigationAction.request.url else {
             decisionHandler(.cancel)
             return
         }
-        
+
         // Convert your logic to Swift
         let urlString = url.absoluteString
-        
+
         print(urlString)
-        
-        if urlString.contains(".pdf") ||
-            urlString.lowercased().contains("/pdf") ||
-            urlString.contains("/download") ||
-            urlString.contains("/statements") {
+
+        if urlString.contains(".pdf") || urlString.lowercased().contains("/pdf")
+            || urlString.contains("/download") || urlString.contains("/statements")
+        {
             handleFileDownload(url: url, decisionHandler: decisionHandler)
             return
         }
-        
+
         if urlString.contains("api/user/redirect?status=") {
             if let status = url.query?.components(separatedBy: "=").last {
                 // Call the onRedirect callback and pass the status
                 AnalyticsLogger.logEvent([
-                    "event": "WEBVIEW_CALLBACK",
+                    "event": "IOS_WEBVIEW_CALLBACK",
                     "status": status,
-                    "url" : urlString
+                    "url": urlString,
                 ])
 
                 completion(.redirect(status: status))
@@ -251,15 +268,13 @@ extension WebViewController {
             //self.dismiss(animated: true)
             return
         }
-        
-        
-        
+
         if urlString.contains("api/user/session-expired?status=") {
             if let status = url.query?.components(separatedBy: "=").last {
                 AnalyticsLogger.logEvent([
-                    "event": "WEBVIEW_CALLBACK",
+                    "event": "IOS_WEBVIEW_CALLBACK",
                     "status": status,
-                    "url" : urlString
+                    "url": urlString,
                 ])
                 completion(.redirect(status: status))
             }
@@ -268,21 +283,21 @@ extension WebViewController {
             //self.dismiss(animated: true)
             return
         }
-        
+
         if url.absoluteString.contains("api/user/redirect") {
             let status = url.lastPathComponent
             completion(.redirect(status: "USER_CLOSED"))
             AnalyticsLogger.logEvent([
-                "event": "WEBVIEW_CALLBACK",
+                "event": "IOS_WEBVIEW_CALLBACK",
                 "status": status,
-                "url" : urlString
+                "url": urlString,
             ])
-            decisionHandler(.cancel) // Stop loading since we're handling it
+            decisionHandler(.cancel)  // Stop loading since we're handling it
             dismissWebView()
             //self.dismiss(animated: true)
             return
         }
-        
+
         // Loop through whitelisted URLs to find a match
         for whitelistedUrl in EnvManager.whitelistedUrls {
             if urlString.contains(whitelistedUrl) || urlString.contains(EnvManager.hostName) {
@@ -291,36 +306,43 @@ extension WebViewController {
                 return
             }
         }
-        
+
         // If URL does not match any condition, open it externally
         openURLExternally(url) {
             AnalyticsLogger.logEvent([
-                "event": "OPENING_URL_EXTERNALLY",
-                "url" : urlString
+                "event": "IOS_OPENING_URL_EXTERNALLY",
+                "url": urlString,
             ])
             decisionHandler(.cancel)
         }
     }
-    
+
     @available(iOS 15.0, *)
-    public func webView(_ webView: WKWebView, requestMediaCapturePermissionFor origin: WKSecurityOrigin, initiatedByFrame frame: WKFrameInfo, type: WKMediaCaptureType, decisionHandler: @escaping (WKPermissionDecision) -> Void) {
+    public func webView(
+        _ webView: WKWebView, requestMediaCapturePermissionFor origin: WKSecurityOrigin,
+        initiatedByFrame frame: WKFrameInfo, type: WKMediaCaptureType,
+        decisionHandler: @escaping (WKPermissionDecision) -> Void
+    ) {
         print("Media capture permission requested for type: \(type)")
         handleMediaPermission(type: type) { granted in
             decisionHandler(granted ? .grant : .deny)
         }
     }
-    
+
     // For iOS 14 and below
-    public func webView(_ webView: WKWebView, didReceiveAuthenticationChallenge challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+    public func webView(
+        _ webView: WKWebView,
+        didReceiveAuthenticationChallenge challenge: URLAuthenticationChallenge,
+        completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
+    ) {
         if #available(iOS 15.0, *) {
             completionHandler(.performDefaultHandling, nil)
             return
         }
-        
+
         // Handle permissions for older iOS versions
         if let host = webView.url?.host {
-            if host.contains("sbmkyc")
-            // ||host.contains(".")
+            if host.contains("sbmkyc")  // ||host.contains(".")
             {
                 // Handle media permission for older iOS versions
                 handleMediaPermissionForOlderVersions { _ in
@@ -331,14 +353,16 @@ extension WebViewController {
             }
         }
     }
-    
+
     private func handleMediaPermissionForOlderVersions(completion: @escaping (Bool) -> Void) {
         checkBothPermissions { cameraGranted, audioGranted in
             completion(cameraGranted && audioGranted)
         }
     }
     @available(iOS 15.0, *)
-    private func handleMediaPermission(type: WKMediaCaptureType, completion: @escaping (Bool) -> Void) {
+    private func handleMediaPermission(
+        type: WKMediaCaptureType, completion: @escaping (Bool) -> Void
+    ) {
         switch type {
         case .cameraAndMicrophone:
             checkBothPermissions { cameraGranted, audioGranted in
@@ -352,7 +376,7 @@ extension WebViewController {
             completion(false)
         }
     }
-    
+
     private func checkBothPermissions(completion: @escaping (Bool, Bool) -> Void) {
         handleCameraPermission { cameraGranted in
             self.handleAudioPermission { audioGranted in
@@ -360,7 +384,7 @@ extension WebViewController {
             }
         }
     }
-    
+
     private func handleCameraPermission(completion: @escaping (Bool) -> Void) {
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .notDetermined:
@@ -383,7 +407,7 @@ extension WebViewController {
             completion(false)
         }
     }
-    
+
     private func handleAudioPermission(completion: @escaping (Bool) -> Void) {
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
         case .notDetermined:
@@ -406,28 +430,27 @@ extension WebViewController {
             completion(false)
         }
     }
-    
-    
+
     private func showPermissionAlert(for type: String) {
         let alert = UIAlertController(
             title: "\(type) Access Required",
             message: "Please enable \(type) access in Settings to use this feature",
             preferredStyle: .alert
         )
-        alert.addAction(UIAlertAction(title: "Settings", style: .default) { _ in
-            if let settingsURL = URL(string: UIApplication.openSettingsURLString) {
-                UIApplication.shared.open(settingsURL)
-            }
-        })
+        alert.addAction(
+            UIAlertAction(title: "Settings", style: .default) { _ in
+                if let settingsURL = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(settingsURL)
+                }
+            })
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         self.present(alert, animated: true)
     }
-    
-    
-    
-    
+
     // Handle location permission changes
-    public func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
+    public func locationManager(
+        _ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus
+    ) {
         switch status {
         case .authorizedWhenInUse, .authorizedAlways:
             locationGranted = true
@@ -459,28 +482,33 @@ extension WebViewController {
             self.dismiss(animated: animated, completion: completion)
         }
     }
-    private func handleFileDownload(url: URL, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        
+    private func handleFileDownload(
+        url: URL, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+    ) {
+
         let session = URLSession.shared
         let task = session.downloadTask(with: url) { (tempLocalUrl, response, error) in
             if let tempLocalUrl = tempLocalUrl, error == nil {
                 // Generate a unique file name in the cache directory
-                if let cachesDirectory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first {
+                if let cachesDirectory = FileManager.default.urls(
+                    for: .cachesDirectory, in: .userDomainMask
+                ).first {
                     let fileName = response?.suggestedFilename ?? url.lastPathComponent
                     let destinationUrl = cachesDirectory.appendingPathComponent(fileName)
-                    
+
                     do {
                         // Remove existing file if it exists
                         if FileManager.default.fileExists(atPath: destinationUrl.path) {
                             try FileManager.default.removeItem(at: destinationUrl)
                         }
-                        
+
                         // Copy downloaded file to destination
                         try FileManager.default.copyItem(at: tempLocalUrl, to: destinationUrl)
-                        
+
                         DispatchQueue.main.async {
                             // Open the file using system default handler
-                            let documentController = UIDocumentInteractionController(url: destinationUrl)
+                            let documentController = UIDocumentInteractionController(
+                                url: destinationUrl)
                             documentController.delegate = self
                             documentController.presentPreview(animated: true)
                         }
@@ -493,13 +521,13 @@ extension WebViewController {
         task.resume()
         decisionHandler(.cancel)
     }
-    
-    
-    
+
 }
 @available(iOS 13.0, *)
 extension WebViewController: UIDocumentInteractionControllerDelegate {
-    public func documentInteractionControllerViewControllerForPreview(_ controller: UIDocumentInteractionController) -> UIViewController {
+    public func documentInteractionControllerViewControllerForPreview(
+        _ controller: UIDocumentInteractionController
+    ) -> UIViewController {
         return self
     }
 }
