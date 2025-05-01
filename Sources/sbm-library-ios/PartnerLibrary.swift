@@ -35,6 +35,7 @@ public class PartnerLibrary {
         EnvManager.whitelistedUrls = whitelistedUrls
         EnvManager.navigationBarDisabled = navigationBarDisabled
         //
+        AnalyticsLogger.logEvent(["event": "SDK_INITIALIZED"])
         Task {
             await preloadWebView()
         }
@@ -44,6 +45,7 @@ public class PartnerLibrary {
     private func preloadWebView() async {
         // Create a WebViewController with a dummy preload URL or any required initial state.
         // Optionally, you can load a lightweight webpage or use the final URL later.
+        AnalyticsLogger.logEvent(["event": "PRELOAD_WEBVIEW"])
         let preloadURL = "\(EnvManager.hostName)/init"
         let tempVC = UIViewController()
         let webVC = await WebViewController(urlString: preloadURL, originalViewController: tempVC) { _ in
@@ -78,7 +80,8 @@ public class PartnerLibrary {
     
     private func clearWebViewCacheAndCookies() async {
         // Clear WKWebsiteDataStore
-        
+        AnalyticsLogger.logEvent(["event": "CLEARING_WEBVIEW_COOKIES"])
+
         debugPrint("Clearing cookies....")
         
 //        HTTPCookieStorage.shared.removeCookies(since: Date.distantPast)
@@ -108,8 +111,12 @@ public class PartnerLibrary {
         //                    viewTransitionCoordinator.startProcess(module: module, completion: callback)
         //                }
         //            } else {
+        AnalyticsLogger.logEvent(["event": "OPEN_FN_CALLED"])
+
         let loginResponse = try await login(token: token)
         print("loginResponse: \(loginResponse)")
+        AnalyticsLogger.logEvent(["event": "LOGIN_API_CALLED","LOGIN_RESPONSE" : "\(loginResponse)"])
+
         DispatchQueue.main.async {
             // Pass the original view controller directly
             let viewTransitionCoordinator = ViewTransitionCoordinator(viewController: viewController)
@@ -172,6 +179,8 @@ public class PartnerLibrary {
                     debugPrint(parameters)
                     let response = try await NetworkManager.shared.makeRequest(url: URL(string: ServiceNames.DEVICE_SESSION.dynamicParams(with: ["partner": partner]))!, method: "POST", jsonPayload: parameters)
                     debugPrint("Bind Device to Session response: \(response)")
+                    AnalyticsLogger.logEvent(["event": "DEVICE_BINDING_API_CALLED", "DEVICE_BINDING_API_RESPONSE":"\(response)"])
+
                     if response["code"] as? String == "DEVICE_BINDED_SESSION_FAILURE" {
                         completion()
                     } else {
@@ -298,6 +307,7 @@ class ViewTransitionCoordinator {
                 debugPrint("Using view controller's navigation controller: \(navController)")
                 navController.pushViewController(webVC, animated: false)
                 navController.setNavigationBarHidden(EnvManager.navigationBarDisabled, animated: false)
+                AnalyticsLogger.logEvent(["event": "WEBVIEW_OPEN_CALLED"])
                 debugPrint("Navigation stack after push: \(navController.viewControllers)")
             } else {
                 debugPrint("No navigation controller found, falling back to modal presentation")

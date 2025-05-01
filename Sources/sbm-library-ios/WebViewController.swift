@@ -12,6 +12,7 @@ import UIKit
 import SwiftUI
 import CoreLocation
 
+@available(iOS 13.0, *)
 public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, CLLocationManagerDelegate,UIGestureRecognizerDelegate {
     
     public weak var originalViewController: UIViewController?
@@ -189,6 +190,7 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
     
 }
 
+@available(iOS 13.0, *)
 extension WebViewController: WKScriptMessageHandler {
     public func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         if message.name == "spense_library" {
@@ -200,6 +202,18 @@ extension WebViewController: WKScriptMessageHandler {
     }
 }
 
+@available(iOS 13.0, *)
+extension WebViewController {
+    public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        if let url = webView.url?.absoluteString {
+            AnalyticsLogger.logEvent([
+                "event": "WEBVIEW_LOADED",
+                "url": url
+            ])
+        }
+    }
+}
+@available(iOS 13.0, *)
 extension WebViewController {
     public func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         
@@ -224,6 +238,12 @@ extension WebViewController {
         if urlString.contains("api/user/redirect?status=") {
             if let status = url.query?.components(separatedBy: "=").last {
                 // Call the onRedirect callback and pass the status
+                AnalyticsLogger.logEvent([
+                    "event": "WEBVIEW_CALLBACK",
+                    "status": status,
+                    "url" : urlString
+                ])
+
                 completion(.redirect(status: status))
             }
             decisionHandler(.cancel)
@@ -236,6 +256,11 @@ extension WebViewController {
         
         if urlString.contains("api/user/session-expired?status=") {
             if let status = url.query?.components(separatedBy: "=").last {
+                AnalyticsLogger.logEvent([
+                    "event": "WEBVIEW_CALLBACK",
+                    "status": status,
+                    "url" : urlString
+                ])
                 completion(.redirect(status: status))
             }
             decisionHandler(.cancel)
@@ -247,6 +272,11 @@ extension WebViewController {
         if url.absoluteString.contains("api/user/redirect") {
             let status = url.lastPathComponent
             completion(.redirect(status: "USER_CLOSED"))
+            AnalyticsLogger.logEvent([
+                "event": "WEBVIEW_CALLBACK",
+                "status": status,
+                "url" : urlString
+            ])
             decisionHandler(.cancel) // Stop loading since we're handling it
             dismissWebView()
             //self.dismiss(animated: true)
@@ -264,6 +294,10 @@ extension WebViewController {
         
         // If URL does not match any condition, open it externally
         openURLExternally(url) {
+            AnalyticsLogger.logEvent([
+                "event": "OPENING_URL_EXTERNALLY",
+                "url" : urlString
+            ])
             decisionHandler(.cancel)
         }
     }
@@ -463,7 +497,7 @@ extension WebViewController {
     
     
 }
-
+@available(iOS 13.0, *)
 extension WebViewController: UIDocumentInteractionControllerDelegate {
     public func documentInteractionControllerViewControllerForPreview(_ controller: UIDocumentInteractionController) -> UIViewController {
         return self
