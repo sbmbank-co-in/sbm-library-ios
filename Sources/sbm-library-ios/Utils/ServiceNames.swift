@@ -21,5 +21,5 @@ struct ServiceNames {
     static var DEVICE_BIND = "\(HOST_URL)\(DEVICE_SLUG)/bind"
     static var DEVICE_SESSION = "\(HOST_URL)\(DEVICE_SLUG)/session"
     static let NETWORK_KEYS = "\(HOST_URL)/network/keys"
-    static let ANALYTICS = "\(HOST_URL)/utils/event/IOS_SDK_EVENT"
+    static let ANALYTICS = "\(HOST_URL)/utils/event/SBM_UAT_SDK_EVENT"
 }
