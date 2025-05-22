@@ -41,7 +41,7 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
         webConfiguration.preferences.setValue(settings["allowFileAccessFromFileURLs"] as? Bool ?? true,
                                            forKey: "allowFileAccessFromFileURLs")
         if #available(iOS 14.0, *) {
-            webConfiguration.defaultWebpagePreferences.allowsContentJavaScript = true
+            webConfiguration.defaultWebpagePreferences.allowsContentJavaScript = settings["allowsContentJavaScript"] as? Bool ?? true
         }
         let webView = WKWebView(frame: .zero, configuration: webConfiguration)
         webView.navigationDelegate = self
