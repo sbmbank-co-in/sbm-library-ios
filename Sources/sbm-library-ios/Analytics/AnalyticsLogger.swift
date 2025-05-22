@@ -55,11 +55,13 @@ class AnalyticsLogger {
             let deviceInfo = await getDeviceInfo()
             let now = ISO8601DateFormatter().string(from: Date())
              
+            var modifiedInfo = info
+            modifiedInfo["framework"] = "IOS"
 
             let event = AnalyticsEvent(
-                time: now,
-                info: info,
-                device: deviceInfo
+                        time: now,
+                        info: modifiedInfo,
+                        device: deviceInfo
             )
 
             var currentEvents = try await loadEvents()
