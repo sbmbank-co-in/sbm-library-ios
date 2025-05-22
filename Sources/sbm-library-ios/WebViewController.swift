@@ -239,17 +239,17 @@ extension WebViewController {
         _ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
         decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
     ) {
-
+        
         guard let url = navigationAction.request.url else {
             decisionHandler(.cancel)
             return
         }
-
+        
         // Convert your logic to Swift
         let urlString = url.absoluteString
         let webViewUrlHandling = config?["webview"] as? [String: Any]
         let urlConfig = config?["urlHandling"] as? [String: Any]
-
+        
         let redirectPaths = urlConfig?["redirectPaths"] as? [String] ?? []
         
         for path in redirectPaths {
@@ -261,78 +261,79 @@ extension WebViewController {
                 dismissWebView()
                 return
             }
-
-        print(urlString)
-
-        if urlString.contains(".pdf") || urlString.lowercased().contains("/pdf")
-            || urlString.contains("/download") || urlString.contains("/statements")
-        {
-            handleFileDownload(url: url, decisionHandler: decisionHandler)
-            return
-        }
-
-        if urlString.contains("api/user/redirect?status=") {
-            if let status = url.query?.components(separatedBy: "=").last {
-                // Call the onRedirect callback and pass the status
-                AnalyticsLogger.logEvent([
-                    "event": "IOS_WEBVIEW_CALLBACK",
-                    "status": status,
-                    "url": urlString,
-                ])
-
-                completion(.redirect(status: status))
-            }
-            decisionHandler(.cancel)
-            dismissWebView()
-            //self.dismiss(animated: true)
-            return
-        }
-
-        if urlString.contains("api/user/session-expired?status=") {
-            if let status = url.query?.components(separatedBy: "=").last {
-                AnalyticsLogger.logEvent([
-                    "event": "IOS_WEBVIEW_CALLBACK",
-                    "status": status,
-                    "url": urlString,
-                ])
-                completion(.redirect(status: status))
-            }
-            decisionHandler(.cancel)
-            dismissWebView()
-            //self.dismiss(animated: true)
-            return
-        }
-
-        if url.absoluteString.contains("api/user/redirect") {
-            let status = url.lastPathComponent
-            completion(.redirect(status: "USER_CLOSED"))
-            AnalyticsLogger.logEvent([
-                "event": "IOS_WEBVIEW_CALLBACK",
-                "status": status,
-                "url": urlString,
-            ])
-            decisionHandler(.cancel)  // Stop loading since we're handling it
-            dismissWebView()
-            //self.dismiss(animated: true)
-            return
-        }
-
-        // Loop through whitelisted URLs to find a match
-        for whitelistedUrl in EnvManager.whitelistedUrls {
-            if urlString.contains(whitelistedUrl) || urlString.contains(EnvManager.hostName) {
-                // If URL matches whitelisted URL or the environment manager's hostname, load it inside the WebView
-                decisionHandler(.allow)
+            
+            print(urlString)
+            
+            if urlString.contains(".pdf") || urlString.lowercased().contains("/pdf")
+                || urlString.contains("/download") || urlString.contains("/statements")
+            {
+                handleFileDownload(url: url, decisionHandler: decisionHandler)
                 return
             }
-        }
-
-        // If URL does not match any condition, open it externally
-        openURLExternally(url) {
-            AnalyticsLogger.logEvent([
-                "event": "IOS_OPENING_URL_EXTERNALLY",
-                "url": urlString,
-            ])
-            decisionHandler(.cancel)
+            
+            if urlString.contains("api/user/redirect?status=") {
+                if let status = url.query?.components(separatedBy: "=").last {
+                    // Call the onRedirect callback and pass the status
+                    AnalyticsLogger.logEvent([
+                        "event": "IOS_WEBVIEW_CALLBACK",
+                        "status": status,
+                        "url": urlString,
+                    ])
+                    
+                    completion(.redirect(status: status))
+                }
+                decisionHandler(.cancel)
+                dismissWebView()
+                //self.dismiss(animated: true)
+                return
+            }
+            
+            if urlString.contains("api/user/session-expired?status=") {
+                if let status = url.query?.components(separatedBy: "=").last {
+                    AnalyticsLogger.logEvent([
+                        "event": "IOS_WEBVIEW_CALLBACK",
+                        "status": status,
+                        "url": urlString,
+                    ])
+                    completion(.redirect(status: status))
+                }
+                decisionHandler(.cancel)
+                dismissWebView()
+                //self.dismiss(animated: true)
+                return
+            }
+            
+            if url.absoluteString.contains("api/user/redirect") {
+                let status = url.lastPathComponent
+                completion(.redirect(status: status))
+                AnalyticsLogger.logEvent([
+                    "event": "IOS_WEBVIEW_CALLBACK",
+                    "status": status,
+                    "url": urlString,
+                ])
+                decisionHandler(.cancel)  // Stop loading since we're handling it
+                dismissWebView()
+                //self.dismiss(animated: true)
+                return
+            }
+            
+            // Loop through whitelisted URLs to find a match
+            for whitelistedUrl in EnvManager.whitelistedUrls {
+                if urlString.contains(whitelistedUrl) || urlString.contains(EnvManager.hostName) {
+                    // If URL matches whitelisted URL or the environment manager's hostname, load it inside the WebView
+                    decisionHandler(.allow)
+                    return
+                }
+            }
+            
+            // If URL does not match any condition, open it externally
+            openURLExternally(url) {
+                AnalyticsLogger.logEvent([
+                    "event": "IOS_OPENING_URL_EXTERNALLY",
+                    "url": urlString,
+                ])
+                decisionHandler(.cancel)
+            }
         }
     }
 
