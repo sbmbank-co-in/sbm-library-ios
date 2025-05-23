@@ -20,28 +20,34 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
     public weak var originalViewController: UIViewController?
     private var config: [String: Any]?
 
-    
     private lazy var webView: WKWebView = {
         let webConfiguration = WKWebViewConfiguration()
         let webViewConfig = config?["webview"] as? [String: Any] ?? [:]
         let settings = webViewConfig["settings"] as? [String: Any] ?? [:]
 
-        webConfiguration.applicationNameForUserAgent = settings["applicationNameForUserAgent"] as? String ?? "Version/8.0.2 Safari/600.2.5"
+        webConfiguration.applicationNameForUserAgent =
+            settings["applicationNameForUserAgent"] as? String ?? "Version/8.0.2 Safari/600.2.5"
         let userContentController = WKUserContentController()
         userContentController.add(self, name: "iosListener")
         webConfiguration.userContentController = userContentController
         webConfiguration.websiteDataStore = WKWebsiteDataStore.default()
-        webConfiguration.preferences.javaScriptEnabled = settings["javaScriptEnabled"] as? Bool ?? true
-        webConfiguration.preferences.javaScriptCanOpenWindowsAutomatically = settings["javaScriptCanOpenWindowsAutomatically"] as? Bool ?? true
-        webConfiguration.allowsInlineMediaPlayback = settings["allowsInlineMediaPlayback"] as? Bool ?? true
+        webConfiguration.preferences.javaScriptEnabled =
+            settings["javaScriptEnabled"] as? Bool ?? true
+        webConfiguration.preferences.javaScriptCanOpenWindowsAutomatically =
+            settings["javaScriptCanOpenWindowsAutomatically"] as? Bool ?? true
+        webConfiguration.allowsInlineMediaPlayback =
+            settings["allowsInlineMediaPlayback"] as? Bool ?? true
         webConfiguration.mediaTypesRequiringUserActionForPlayback = []
         if #available(iOS 15.0, *) {
-            webConfiguration.mediaPlaybackRequiresUserAction = settings["mediaPlaybackRequiresUserAction"] as? Bool ?? false
+            webConfiguration.mediaPlaybackRequiresUserAction =
+                settings["mediaPlaybackRequiresUserAction"] as? Bool ?? false
         }
-        webConfiguration.preferences.setValue(settings["allowFileAccessFromFileURLs"] as? Bool ?? true,
-                                           forKey: "allowFileAccessFromFileURLs")
+        webConfiguration.preferences.setValue(
+            settings["allowFileAccessFromFileURLs"] as? Bool ?? true,
+            forKey: "allowFileAccessFromFileURLs")
         if #available(iOS 14.0, *) {
-            webConfiguration.defaultWebpagePreferences.allowsContentJavaScript = settings["allowsContentJavaScript"] as? Bool ?? true
+            webConfiguration.defaultWebpagePreferences.allowsContentJavaScript =
+                settings["allowsContentJavaScript"] as? Bool ?? true
         }
         let webView = WKWebView(frame: .zero, configuration: webConfiguration)
         webView.navigationDelegate = self
@@ -55,9 +61,11 @@ public class WebViewController: UIViewController, WKNavigationDelegate, WKUIDele
     var completion: (WebViewCallback) -> Void
     private var locationManager: CLLocationManager?
     private var locationGranted: Bool = false
-    
-    public init(urlString: String?,  originalViewController: UIViewController, completion: @escaping (WebViewCallback) -> Void, config: [String: Any]? = nil
-) {
+
+    public init(
+        urlString: String?, originalViewController: UIViewController,
+        completion: @escaping (WebViewCallback) -> Void, config: [String: Any]? = nil
+    ) {
         self.urlString = urlString
         self.completion = completion
         self.originalViewController = originalViewController
@@ -239,56 +247,23 @@ extension WebViewController {
         _ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
         decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
     ) {
-        
+
         guard let url = navigationAction.request.url else {
             decisionHandler(.cancel)
             return
         }
-        
+
         // Convert your logic to Swift
         let urlString = url.absoluteString
-        let webViewUrlHandling = config?["webview"] as? [String: Any]
-        let urlConfig = config?["urlHandling"] as? [String: Any]
-        
+
+        let webviewConfig = config?["webview"] as? [String: Any]
+        let urlConfig = webviewConfig?["urlHandling"] as? [String: Any]
         let redirectPaths = urlConfig?["redirectPaths"] as? [String] ?? []
-        
+        print("redirectPaths: \(redirectPaths)")
+        // 1. Handle redirect paths
         for path in redirectPaths {
             if urlString.contains(path) {
-                if let status = url.query?.components(separatedBy: "=").last {
-                    completion(.redirect(status: status))
-                }
-                decisionHandler(.cancel)
-                dismissWebView()
-                return
-            }
-            
-            print(urlString)
-            
-            if urlString.contains(".pdf") || urlString.lowercased().contains("/pdf")
-                || urlString.contains("/download") || urlString.contains("/statements")
-            {
-                handleFileDownload(url: url, decisionHandler: decisionHandler)
-                return
-            }
-            
-            if urlString.contains("api/user/redirect?status=") {
-                if let status = url.query?.components(separatedBy: "=").last {
-                    // Call the onRedirect callback and pass the status
-                    AnalyticsLogger.logEvent([
-                        "event": "IOS_WEBVIEW_CALLBACK",
-                        "status": status,
-                        "url": urlString,
-                    ])
-                    
-                    completion(.redirect(status: status))
-                }
-                decisionHandler(.cancel)
-                dismissWebView()
-                //self.dismiss(animated: true)
-                return
-            }
-            
-            if urlString.contains("api/user/session-expired?status=") {
+                print("paths: \(path)")
                 if let status = url.query?.components(separatedBy: "=").last {
                     AnalyticsLogger.logEvent([
                         "event": "IOS_WEBVIEW_CALLBACK",
@@ -299,41 +274,33 @@ extension WebViewController {
                 }
                 decisionHandler(.cancel)
                 dismissWebView()
-                //self.dismiss(animated: true)
                 return
             }
-            
-            if url.absoluteString.contains("api/user/redirect") {
-                let status = url.lastPathComponent
-                completion(.redirect(status: status))
-                AnalyticsLogger.logEvent([
-                    "event": "IOS_WEBVIEW_CALLBACK",
-                    "status": status,
-                    "url": urlString,
-                ])
-                decisionHandler(.cancel)  // Stop loading since we're handling it
-                dismissWebView()
-                //self.dismiss(animated: true)
+        }
+
+        // 2. Handle file downloads
+        if urlString.contains(".pdf") || urlString.lowercased().contains("/pdf")
+            || urlString.contains("/download") || urlString.contains("/statements")
+        {
+            handleFileDownload(url: url, decisionHandler: decisionHandler)
+            return
+        }
+
+        // 3. Whitelisted URLs
+        for whitelistedUrl in EnvManager.whitelistedUrls {
+            if urlString.contains(whitelistedUrl) || urlString.contains(EnvManager.hostName) {
+                decisionHandler(.allow)
                 return
             }
-            
-            // Loop through whitelisted URLs to find a match
-            for whitelistedUrl in EnvManager.whitelistedUrls {
-                if urlString.contains(whitelistedUrl) || urlString.contains(EnvManager.hostName) {
-                    // If URL matches whitelisted URL or the environment manager's hostname, load it inside the WebView
-                    decisionHandler(.allow)
-                    return
-                }
-            }
-            
-            // If URL does not match any condition, open it externally
-            openURLExternally(url) {
-                AnalyticsLogger.logEvent([
-                    "event": "IOS_OPENING_URL_EXTERNALLY",
-                    "url": urlString,
-                ])
-                decisionHandler(.cancel)
-            }
+        }
+
+        // 4. Open externally if not handled above
+        openURLExternally(url) {
+            AnalyticsLogger.logEvent([
+                "event": "IOS_OPENING_URL_EXTERNALLY",
+                "url": urlString,
+            ])
+            decisionHandler(.cancel)
         }
     }
 

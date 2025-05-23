@@ -382,6 +382,7 @@ class ViewTransitionCoordinator {
 
         let sdkConfigResponse = await library.getSDKConfig()
         let webViewConfig = library.extractWebViewConfig(from: sdkConfigResponse)
+        print("webviewconfifg \(webViewConfig)")
         DispatchQueue.main.async {
             let webVC: WebViewController
             let newUrl = "\(EnvManager.hostName)\(module)"

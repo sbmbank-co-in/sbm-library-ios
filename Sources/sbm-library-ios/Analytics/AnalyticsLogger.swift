@@ -3,7 +3,7 @@ import SwiftUI
 import UIKit
 
 @available(iOS 13.0, *)
-class AnalyticsLogger {
+public class AnalyticsLogger {
     // Singleton setup
     static let shared = AnalyticsLogger()
     private init() {}
@@ -18,7 +18,7 @@ class AnalyticsLogger {
     private let maxInterval: TimeInterval = 600  // 10 minutes
     private let queue = DispatchQueue(label: "com.analytics.logger")
 
-    static func logEvent(_ info: [String: Any]) {
+    public static func logEvent(_ info: [String: Any]) {
         Task {
             await shared.logEvent(info: info)
         }
@@ -54,14 +54,14 @@ class AnalyticsLogger {
         do {
             let deviceInfo = await getDeviceInfo()
             let now = ISO8601DateFormatter().string(from: Date())
-             
+
             var modifiedInfo = info
             modifiedInfo["framework"] = "IOS"
 
             let event = AnalyticsEvent(
-                        time: now,
-                        info: modifiedInfo,
-                        device: deviceInfo
+                time: now,
+                info: modifiedInfo,
+                device: deviceInfo
             )
 
             var currentEvents = try await loadEvents()
@@ -119,6 +119,7 @@ class AnalyticsLogger {
 
             lastPost = Date().timeIntervalSince1970
 
+            print("Analytics payload: \(["data": eventsData])")
             let response = try await NetworkManager.shared.makeRequest(
                 url: URL(string: ServiceNames.ANALYTICS)!,
                 method: "POST",
@@ -137,7 +138,6 @@ class AnalyticsLogger {
                 print("Failed to save events after post failure: \(error)")
             }
         }
-
 
     }
 
