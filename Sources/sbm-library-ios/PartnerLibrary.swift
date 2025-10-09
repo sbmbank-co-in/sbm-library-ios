@@ -94,6 +94,64 @@ public class PartnerLibrary {
         debugPrint("Cleared all WebView cache and cookies")
     }
     
+    public func publicApi(
+        url: String,
+        method: String ,
+        headers: [String: String]? = nil,
+        body: [String: Any]? = nil
+    ) async throws -> [String: Any] {
+        try await NetworkManager.shared.makeRequest(
+            url: URL(string: url)!,
+            method: method,
+            headers: headers,
+            jsonPayload: body
+        )
+    }
+    
+    public typealias JSON = [String: Any]
+
+    
+    public func sdkLogin(token: String, bank: String, partner: String) async throws -> JSON {
+            // 1) Login
+            let loginResponse = try await login(token: token)
+
+            // If login didn't succeed, return it as-is
+            let loginCode = loginResponse["code"] as? String
+            guard loginCode == "USER_LOGIN_SUCCESS" else {
+                return loginResponse
+            }
+
+            // 2) Device-binding path (UI-less)
+            //    Equivalent to `bindDevice` but without presenting any screens.
+            let toBindDevice = try await self.checkDeviceBinding(bank: bank)
+
+            if toBindDevice {
+                // In the original bindDevice,
+                // Since we’re ignoring UI here, signal the caller to trigger that flow.
+                return ["code": "DEVICE_BINDING_REQUIRED"]
+            } else {
+                // Device already bound → create a device session and return that response
+                let parameters: JSON = await [
+                    "device_uuid": UIDevice.current.identifierForVendor?.uuidString as Any,
+                    "manufacturer": "Apple",
+                    "model": UIDevice.modelName,
+                    "os": "iOS",
+                    "os_version": UIDevice.current.systemVersion,
+                    "app_version": PackageInfo.version
+                ]
+
+                let url = URL(string: ServiceNames.DEVICE_SESSION.dynamicParams(with: ["partner": partner]))!
+                let sessionResp = try await NetworkManager.shared.makeRequest(
+                    url: url,
+                    method: "POST",
+                    jsonPayload: parameters
+                )
+                return sessionResp
+            }
+        }
+
+    
+
     
     
     public func open(on viewController: UIViewController, token: String, module: String, callback: @escaping (WebViewCallback) -> Void) async throws {
