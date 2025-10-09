@@ -111,44 +111,51 @@ public class PartnerLibrary {
     public typealias JSON = [String: Any]
 
     
-    public func sdkLogin(token: String, bank: String, partner: String) async throws -> JSON {
-            // 1) Login
-            let loginResponse = try await login(token: token)
+    public func sdkLogin(token: String, partner: String) async throws -> JSON {
+        // 1) Login
+        print("entered login")
+        var loginResponse = try await login(token: token)
 
-            // If login didn't succeed, return it as-is
-            let loginCode = loginResponse["code"] as? String
-            guard loginCode == "USER_LOGIN_SUCCESS" else {
-                return loginResponse
-            }
-
-            // 2) Device-binding path (UI-less)
-            //    Equivalent to `bindDevice` but without presenting any screens.
-            let toBindDevice = try await self.checkDeviceBinding(bank: bank)
-
-            if toBindDevice {
-                // In the original bindDevice,
-                // Since we’re ignoring UI here, signal the caller to trigger that flow.
-                return ["code": "DEVICE_BINDING_REQUIRED"]
-            } else {
-                // Device already bound → create a device session and return that response
-                let parameters: JSON = await [
-                    "device_uuid": UIDevice.current.identifierForVendor?.uuidString as Any,
-                    "manufacturer": "Apple",
-                    "model": UIDevice.modelName,
-                    "os": "iOS",
-                    "os_version": UIDevice.current.systemVersion,
-                    "app_version": PackageInfo.version
-                ]
-
-                let url = URL(string: ServiceNames.DEVICE_SESSION.dynamicParams(with: ["partner": partner]))!
-                let sessionResp = try await NetworkManager.shared.makeRequest(
-                    url: url,
-                    method: "POST",
-                    jsonPayload: parameters
-                )
-                return sessionResp
-            }
+        let loginCode = loginResponse["code"] as? String
+        guard loginCode == "USER_LOGIN_SUCCESS" else {
+            // Not a successful login → return login response as-is
+            return loginResponse
         }
+
+        // 2) Device session (UI-less). On any error, we keep shape stable and
+        //    attach an error stub at "device" instead of throwing.
+        do {
+            let parameters: JSON = [
+                "device_uuid": UIDevice.current.identifierForVendor?.uuidString as Any,
+                "manufacturer": "Apple",
+                "model": UIDevice.modelName,
+                "os": "iOS",
+                "os_version": UIDevice.current.systemVersion,
+                "app_version": PackageInfo.version
+            ]
+
+            guard let url = URL(string: ServiceNames.DEVICE_SESSION.dynamicParams(with: ["partner": partner])) else {
+                throw NSError(domain: "SDK", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid device-session URL"])
+            }
+
+            let sessionResp = try await NetworkManager.shared.makeRequest(
+                url: url,
+                method: "POST",
+                jsonPayload: parameters
+            )
+
+            // Nest device-session result into login JSON
+            loginResponse["device"] = sessionResp
+            return loginResponse
+        } catch {
+            // Keep return shape stable even if device session fails
+            loginResponse["device"] = [
+                "success": false,
+                "message": error.localizedDescription
+            ]
+            return loginResponse
+        }
+    }
 
     
 

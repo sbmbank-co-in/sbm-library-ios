@@ -6,8 +6,8 @@
 //
 
 struct EnvManager {
-    static var hostName = "https://partner.uat.spense.money"
+    static var hostName = "https://sbmsmartbankinguat.esbeeyem.com"
     static var whitelistedUrls: Array<String> = []
-    static var deviceBindingEnabled = true
+    static var deviceBindingEnabled = false
     static var navigationBarDisabled = true
 }
